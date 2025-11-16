@@ -1,0 +1,36 @@
+{
+  "name": "web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "@nuxt/ui": "^4.0.0",
+    "@nuxt/content": "^3.7.1",
+    "@nuxtjs/mdc": "^0.17.4",
+    "nuxt": "^4.1.2",
+    "typescript": "catalog:",
+    "vue": "^3.5.21",
+    "vue-router": "^4.5.1",
+    "zod": "catalog:",
+    "@tanstack/vue-query": "^5.90.2",
+    "@orpc/tanstack-query": "^1.10.0",
+    "@orpc/client": "catalog:",
+    "@orpc/server": "catalog:",
+    "@prisma/client": "catalog:",
+    "better-auth": "catalog:",
+    "@Penta-web-app/api": "workspace:*",
+    "@Penta-web-app/auth": "workspace:*"
+  },
+  "devDependencies": {
+    "tailwindcss": "^4.1.13",
+    "@iconify-json/lucide": "^1.2.57",
+    "@tanstack/vue-query-devtools": "^5.90.2",
+    "@Penta-web-app/config": "workspace:*"
+  }
+}
