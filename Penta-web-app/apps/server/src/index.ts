@@ -17,7 +17,7 @@ app.use(logger());
 app.use(
 	"/*",
 	cors({
-		origin: process.env.CORS_ORIGIN || "",
+		origin: ["http://localhost:3000", "http://localhost:3001"],
 		allowMethods: ["GET", "POST", "OPTIONS"],
 		allowHeaders: ["Content-Type", "Authorization"],
 		credentials: true,
@@ -74,5 +74,6 @@ app.use("/*", async (c, next) => {
 app.get("/", (c) => {
 	return c.text("OK");
 });
+
 
 export default app;
