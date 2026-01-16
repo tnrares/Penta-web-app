@@ -48,3 +48,4 @@ coverage
 .cache
 tmp
 temp
+orm-benchmark/server-prisma/

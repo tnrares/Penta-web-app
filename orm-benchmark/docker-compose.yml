@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  database:
+    image: postgres:16-alpine
+    container_name: benchmark_db
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: benchmark
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  k6:
+    image: grafana/k6:latest
+    container_name: benchmark_k6
+    volumes:
+      # Mount the k6-scripts directory so k6 can access the test files
+      - ./k6-scripts:/scripts
+      # Mount the entire project root in case you need to import modules from other directories
+      - .:/workspace
+    working_dir: /scripts
+    # Default command can be overridden when running
+    command: run load-test.js
+    environment:
+      - PORT=3000
+      # On Windows/Mac, use host.docker.internal to access host services
+      # On Linux, you may need to use the host's IP or add extra_hosts
+      - HOST=host.docker.internal
+
+volumes:
+  db_data:

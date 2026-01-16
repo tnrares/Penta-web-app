@@ -5,6 +5,10 @@
       "types": "./dist/index.d.ts",
       "default": "./src/index.ts"
     },
+    "./routers": {
+      "types": "./dist/routers/index.d.ts",
+      "default": "./src/routers/index.ts"
+    },
     "./*": {
       "types": "./dist/*.d.ts",
       "default": "./src/*.ts"

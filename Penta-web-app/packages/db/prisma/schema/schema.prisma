@@ -9,3 +9,241 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+enum Role {
+  MANAGER
+  WORKER
+  CLIENT
+}
+
+enum JobStatus {
+  PENDING_VISIT
+  QUOTE_SENT
+  QUOTE_ACCEPTED
+  IN_PROGRESS
+  FINALIZED
+  CLOSED_PAID
+  CANCELED
+}
+
+enum PaymentStatus {
+  EMITTED_UNPAID
+  PARTIALLY_PAID
+  PAID_IN_FULL
+  OVERDUE
+}
+
+enum OrderStatus {
+  DRAFT
+  SENT_TO_SUPPLIER
+  DELIVERED
+  CANCELED
+}
+
+model User {
+  id            String    @id @default(cuid()) @map("_id")
+  email         String    @unique @map("email")
+  emailVerified Boolean   @default(false) @map("email_verified")
+  name          String    @map("name")
+  image         String?   @map("image")
+  password      String?   @map("password")
+  phone         String?   @map("phone")
+  role          Role      @default(CLIENT) @map("role")
+  companyName   String?   @map("company_name")
+  cui           String?   @unique @map("cui")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  sessions      Session[]
+  accounts      Account[]
+
+  jobsAsClient  Job[]           @relation("JobClient")
+  jobsAsManager Job[]           @relation("JobManager")
+  jobsAsWorker  Job[]           @relation("JobWorker")
+  invoices      Invoice[]
+  purchaseOrders PurchaseOrder[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(cuid()) @map("_id")
+  expiresAt DateTime @map("expires_at")
+  token     String   @unique @map("token")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(cuid()) @map("_id")
+  accountId             String    @map("account_id")
+  providerId            String    @map("provider_id")
+  userId                String    @map("user_id")
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?   @map("access_token")
+  refreshToken          String?   @map("refresh_token")
+  idToken               String?   @map("id_token")
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at")
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at")
+  scope                 String?   @map("scope")
+  password              String?   @map("password")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id @default(cuid()) @map("_id")
+  identifier String    @map("identifier")
+  value      String    @map("value")
+  expiresAt  DateTime  @map("expires_at")
+  createdAt  DateTime? @default(now()) @map("created_at")
+  updatedAt  DateTime? @updatedAt @map("updated_at")
+
+  @@map("verification")
+}
+
+model Job {
+  id                 Int       @id @default(autoincrement()) @map("id")
+  title              String    @map("title")
+  status             JobStatus @map("status")
+  address            String    @map("address")
+  estimatedStartDate DateTime? @map("estimated_start_date")
+  estimatedEndDate   DateTime? @map("estimated_end_date")
+  actualStartDate    DateTime? @map("actual_start_date")
+  actualEndDate      DateTime? @map("actual_end_date")
+  
+  clientId           String    @map("client_id")
+  managerId          String    @map("manager_id")
+  workerId           String?   @map("worker_id")
+  
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  client             User      @relation("JobClient", fields: [clientId], references: [id])
+  manager            User      @relation("JobManager", fields: [managerId], references: [id])
+  worker             User?     @relation("JobWorker", fields: [workerId], references: [id])
+  
+  quote              Quote?
+  invoice            Invoice?
+  materials          JobMaterial[]
+
+  @@map("jobs")
+}
+
+model Quote {
+  id          Int      @id @default(autoincrement()) @map("id")
+  jobId       Int      @unique @map("job_id")
+  totalAmount Float    @map("total_amount")
+  isAccepted  Boolean  @default(false) @map("is_accepted")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  job         Job      @relation(fields: [jobId], references: [id])
+
+  @@map("quotes")
+}
+
+model Invoice {
+  id          Int           @id @default(autoincrement()) @map("id")
+  jobId       Int           @unique @map("job_id")
+  userId      String        @map("user_id")
+  issueDate   DateTime      @map("issue_date")
+  dueDate     DateTime      @map("due_date")
+  status      PaymentStatus @map("status")
+  totalAmount Float         @map("total_amount")
+  amountPaid  Float         @default(0) @map("amount_paid")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  job         Job           @relation(fields: [jobId], references: [id])
+  user        User          @relation(fields: [userId], references: [id])
+
+  @@map("invoices")
+}
+
+model InventoryItem {
+  id            Int     @id @default(autoincrement()) @map("id")
+  name          String  @unique @map("name")
+  unit          String  @map("unit")
+  unitCost      Float   @map("unit_cost")
+  currentStock  Float   @default(0) @map("current_stock")
+  minStockAlert Float   @default(5) @map("min_stock_alert")
+  yieldRate     Float   @default(1.0) @map("yield_rate")
+
+  supplierId    Int?    @map("supplier_id")
+  supplier      Supplier? @relation(fields: [supplierId], references: [id])
+
+  jobMaterials  JobMaterial[]
+  purchaseItems PurchaseOrderItem[]
+
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("inventory_items")
+}
+
+model Supplier {
+  id             Int      @id @default(autoincrement()) @map("id")
+  name           String   @unique @map("name")
+  contactEmail   String   @map("contact_email")
+  phone          String?  @map("phone")
+
+  inventoryItems InventoryItem[]
+  purchaseOrders PurchaseOrder[]
+
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("suppliers")
+}
+
+model JobMaterial {
+  jobId          Int    @map("job_id")
+  itemId         Int    @map("item_id")
+  quantityUsed   Float  @map("quantity_used")
+  unitCostAtTime Float  @map("unit_cost_at_time")
+
+  job            Job           @relation(fields: [jobId], references: [id])
+  item           InventoryItem @relation(fields: [itemId], references: [id])
+
+  @@id([jobId, itemId])
+  @@map("job_materials")
+}
+
+model PurchaseOrder {
+  id           Int           @id @default(autoincrement()) @map("id")
+  supplierId   Int           @map("supplier_id")
+  managerId    String        @map("manager_id")
+  status       OrderStatus   @map("status")
+  orderDate    DateTime      @default(now()) @map("order_date")
+  totalCost    Float         @default(0) @map("total_cost")
+
+  supplier     Supplier      @relation(fields: [supplierId], references: [id])
+  manager      User          @relation(fields: [managerId], references: [id])
+  items        PurchaseOrderItem[]
+
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  orderId      Int    @map("order_id")
+  itemId       Int    @map("item_id")
+  quantity     Float  @map("quantity")
+
+  order        PurchaseOrder @relation(fields: [orderId], references: [id])
+  item         InventoryItem @relation(fields: [itemId], references: [id])
+
+  @@id([orderId, itemId])
+  @@map("purchase_order_items")
+}
