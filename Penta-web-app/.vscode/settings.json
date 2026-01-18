@@ -1,0 +1,7 @@
+{
+  "volar.takeOverMode.enabled": true,
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "javascript.suggest.autoImports": true,
+  "typescript.suggest.autoImports": true,
+  "eslint.validate": ["javascript", "typescript", "vue"]
+}

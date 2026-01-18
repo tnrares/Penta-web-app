@@ -1,16 +1,22 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
-	compatibilityDate: "latest",
-	devtools: { enabled: true },
-	modules: ["@nuxt/ui"],
-	css: ["~/assets/css/main.css"],
-	devServer: {
-		port: 3001,
-	},
-	ssr: true,
-	runtimeConfig: {
-		public: {
-			serverURL: process.env.NUXT_PUBLIC_SERVER_URL,
-		},
-	},
+				compatibilityDate: "latest",
+				devtools: {
+				 enabled: true,
+
+				 timeline: {
+					 enabled: true,
+					},
+				},
+				modules: ["@nuxt/ui"],
+				css: ["~/assets/css/main.css"],
+				devServer: {
+								port: 3001,
+				},
+				ssr: true,
+				runtimeConfig: {
+								public: {
+												serverURL: process.env.NUXT_PUBLIC_SERVER_URL,
+								},
+				},
 });

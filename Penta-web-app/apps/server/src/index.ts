@@ -10,16 +10,21 @@ import { auth } from "../../../packages/auth/src";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
-
+import { inventoryRouter } from "./routes/inventory";
+import { jobsRouter } from "./routes/jobs";
+import { quotesRouter } from "./routes/quotes";
 const app = new Hono();
 
 app.use(logger());
 app.use(
 	"/*",
 	cors({
-		origin: ["http://localhost:3000", "http://localhost:3001"],
-		allowMethods: ["GET", "POST", "OPTIONS"],
+		origin: ["http://localhost:3000", "http://localhost:3001",
+            "http://127.0.0.1:3000", "http://127.0.0.1:3001"],
+		allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
 		allowHeaders: ["Content-Type", "Authorization"],
+		exposeHeaders: ["Content-Length"],	
+		maxAge: 600,
 		credentials: true,
 	}),
 );
@@ -38,6 +43,10 @@ export const apiHandler = new OpenAPIHandler(appRouter, {
 		}),
 	],
 });
+
+app.route("/api/inventory", inventoryRouter);
+app.route("/api/jobs", jobsRouter);
+app.route("/api/quotes", quotesRouter);
 
 export const rpcHandler = new RPCHandler(appRouter, {
 	interceptors: [
@@ -73,6 +82,24 @@ app.use("/*", async (c, next) => {
 
 app.get("/", (c) => {
 	return c.text("OK");
+});
+
+app.use(
+    "/*",
+    cors({
+        origin: [
+            "http://localhost:3000", "http://localhost:3001", "http://localhost:5173",
+            "http://127.0.0.1:3000", "http://127.0.0.1:3001", "http://127.0.0.1:5173"
+        ],
+        allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], 
+        allowHeaders: ["Content-Type", "Authorization"],
+        exposeHeaders: ["Content-Length"],
+        maxAge: 600,
+        credentials: true,
+    })
+);
+app.options("/*", (c) => {
+  return c.body(null, 204);
 });
 
 

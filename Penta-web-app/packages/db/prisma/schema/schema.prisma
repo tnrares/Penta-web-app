@@ -121,14 +121,14 @@ model Job {
   actualEndDate      DateTime? @map("actual_end_date")
   
   clientId           String    @map("client_id")
-  managerId          String    @map("manager_id")
+  managerId          String?    @map("manager_id")
   workerId           String?   @map("worker_id")
   
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
   client             User      @relation("JobClient", fields: [clientId], references: [id])
-  manager            User      @relation("JobManager", fields: [managerId], references: [id])
+  manager            User?      @relation("JobManager", fields: [managerId], references: [id])
   worker             User?     @relation("JobWorker", fields: [workerId], references: [id])
   
   quote              Quote?
@@ -141,14 +141,32 @@ model Job {
 model Quote {
   id          Int      @id @default(autoincrement()) @map("id")
   jobId       Int      @unique @map("job_id")
-  totalAmount Float    @map("total_amount")
+  
+  totalAmount Float    @default(0) @map("total_amount")
+  
   isAccepted  Boolean  @default(false) @map("is_accepted")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   job         Job      @relation(fields: [jobId], references: [id])
+  
+  items       QuoteItem[] 
 
   @@map("quotes")
+}
+
+model QuoteItem {
+  id          String   @id @default(cuid()) @map("id")
+  quoteId     Int      @map("quote_id")
+  
+  description String   @map("description") // Ex: "Ciment" sau "Manoperă"
+  quantity    Float    @default(1) @map("quantity")
+  unitPrice   Float    @map("unit_price")
+  total       Float    @map("total") // quantity * unitPrice
+  
+  quote       Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@map("quote_items")
 }
 
 model Invoice {
