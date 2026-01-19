@@ -73,4 +73,45 @@ app.get("/job/:jobId", async (c) => {
   return c.json(quote);
 });
 
+app.patch("/:id/respond", async (c) => {
+  const session = await auth.api.getSession({ headers: c.req.raw.headers });
+  if (!session) {
+    console.error("No session found. Headers:", Object.fromEntries(c.req.raw.headers.entries()));
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  const quoteId = parseInt(c.req.param("id"));
+  const { accepted } = await c.req.json();
+
+  try {
+    const quote = await prisma.quote.findUnique({
+      where: { id: quoteId },
+      include: { job: true }
+    });
+
+    if (!quote) return c.json({ error: "Ofertă inexistentă" }, 404);
+
+    if (quote.job.clientId !== session.user.id) {
+      return c.json({ error: "Nu ai dreptul să răspunzi la această ofertă." }, 403);
+    }
+    await prisma.$transaction([
+      prisma.quote.update({
+        where: { id: quoteId },
+        data: { isAccepted: accepted }
+      }), 
+      prisma.job.update({
+        where: { id: quote.jobId },
+        data: { 
+          status: accepted ? "IN_PROGRESS" : "CANCELED" 
+        }
+      })
+    ]);
+
+    return c.json({ success: true, status: accepted ? "ACCEPTED" : "REJECTED" });
+  } catch (e) {
+    console.error(e);
+    return c.json({ error: "Eroare la procesarea răspunsului." }, 500);
+  }
+});
+
 export const quotesRouter = app;

@@ -63,12 +63,23 @@ app.post("/", async (c) => {
     return c.json({ error: "Eroare creare job" }, 500);
   }
 });
+
 app.get("/:id", async (c) => {
   const id = parseInt(c.req.param("id"));
   try {
     const job = await prisma.job.findUnique({
       where: { id },
-      include: { client: true, manager: true }
+      include: { 
+        client: true, 
+        manager: true, 
+        quote: {
+          include: {
+            items: true
+          }
+        },
+        photos: true,
+        invoice: true
+      }
     });
     if (!job) return c.json({ error: "Lucrarea nu există" }, 404);
     return c.json(job);

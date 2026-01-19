@@ -13,6 +13,10 @@ import { logger } from "hono/logger";
 import { inventoryRouter } from "./routes/inventory";
 import { jobsRouter } from "./routes/jobs";
 import { quotesRouter } from "./routes/quotes";
+import { uploadsRouter } from "./routes/upload";
+import { serveStatic } from "hono/bun";
+import { invoicesRouter } from "./routes/invoices";
+
 const app = new Hono();
 
 app.use(logger());
@@ -22,7 +26,7 @@ app.use(
 		origin: ["http://localhost:3000", "http://localhost:3001",
             "http://127.0.0.1:3000", "http://127.0.0.1:3001"],
 		allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-		allowHeaders: ["Content-Type", "Authorization"],
+		allowHeaders: ["Content-Type", "Authorization", "Cookie"],
 		exposeHeaders: ["Content-Length"],	
 		maxAge: 600,
 		credentials: true,
@@ -30,6 +34,8 @@ app.use(
 );
 
 app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
+
+app.get("/uploads/*", serveStatic({ root: "./" }));
 
 export const apiHandler = new OpenAPIHandler(appRouter, {
 	plugins: [
@@ -47,6 +53,8 @@ export const apiHandler = new OpenAPIHandler(appRouter, {
 app.route("/api/inventory", inventoryRouter);
 app.route("/api/jobs", jobsRouter);
 app.route("/api/quotes", quotesRouter);
+app.route("/api/uploads", uploadsRouter);
+app.route("/api/invoices", invoicesRouter);
 
 export const rpcHandler = new RPCHandler(appRouter, {
 	interceptors: [
@@ -91,8 +99,8 @@ app.use(
             "http://localhost:3000", "http://localhost:3001", "http://localhost:5173",
             "http://127.0.0.1:3000", "http://127.0.0.1:3001", "http://127.0.0.1:5173"
         ],
-        allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], 
-        allowHeaders: ["Content-Type", "Authorization"],
+        allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"], 
+        allowHeaders: ["Content-Type", "Authorization", "Cookie"],
         exposeHeaders: ["Content-Length"],
         maxAge: 600,
         credentials: true,
