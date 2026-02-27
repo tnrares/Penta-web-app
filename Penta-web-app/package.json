@@ -34,11 +34,15 @@
     "db:migrate": "turbo -F @Penta-web-app/db db:migrate"
   },
   "dependencies": {
+    "@nuxt/image": "^2.0.0",
     "dotenv": "^17.2.2",
+    "nuxt": "^4.3.1",
+    "pdfkit": "^0.17.2",
     "zod": "^4.1.11"
   },
   "devDependencies": {
     "@types/bun": "^1.2.6",
+    "@types/pdfkit": "^0.17.5",
     "tsdown": "^0.15.5",
     "turbo": "^2.7.4"
   },

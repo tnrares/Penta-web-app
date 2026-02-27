@@ -57,7 +57,7 @@
     credentials: 'include'
   })
   const assignToMe = async () => {
-    if(!confirm("Acceptați această lucrare?")) return;
+    if(!confirm("Acceptati aceasta lucrare?")) return;
     try {
       await $fetch(`${serverUrl}/api/jobs/${jobId}/assign`, { 
         method: 'PATCH',
@@ -70,8 +70,8 @@
   const respondToQuote = async (accepted: boolean) => {
   if (!job.value?.quote) return;
   
-  const action = accepted ? "accepți" : "refuzi";
-  if (!confirm(`Ești sigur că vrei să ${action} oferta?`)) return;
+  const action = accepted ? "accepti" : "refuzi";
+  if (!confirm(`Esti sigur ca vrei sa ${action} oferta?`)) return;
 
   try {
     const response = await fetch(`${serverUrl}/api/quotes/${job.value.quote.id}/respond`, {
@@ -90,7 +90,7 @@
     
     await refresh();
   } catch (e: any) {
-    alert(e.message || "Eroare la trimiterea răspunsului.");
+      alert(e.message || "Eroare la trimiterea raspunsului.");
   }
 }
 const isUploading = ref(false);
@@ -101,7 +101,7 @@ const handleFileUpload = async (event: Event) => {
   if (!input.files || input.files.length === 0) return;
   
   if (!job.value) {
-    alert("Job-ul nu este încărcat.");
+    alert("Job-ul nu este incarcat.");
     return;
   }
 
@@ -127,7 +127,7 @@ const handleFileUpload = async (event: Event) => {
     if (fileInput.value) fileInput.value.value = "";
     await refresh();
   } catch (e) {
-    alert("Eroare la upload.");
+    alert("Eroare la incarcarea fisierului.");
     console.error(e);
   } finally {
     isUploading.value = false;
@@ -135,7 +135,7 @@ const handleFileUpload = async (event: Event) => {
 };
 
 const deletePhoto = async (photoId: string) => {
-  if (!confirm("Ești sigur că vrei să ștergi această poză?")) return;
+  if (!confirm("Esti sigur ca vrei sa stergi aceasta poza?")) return;
 
   try {
     const response = await fetch(`${serverUrl}/api/uploads/${photoId}`, {
@@ -150,13 +150,13 @@ const deletePhoto = async (photoId: string) => {
     
     await refresh();
   } catch (e: any) {
-    alert(e.message || "Eroare la ștergerea pozei.");
+    alert(e.message || "Eroare la stergerea pozei.");
     console.error(e);
   }
 };
 
 const generateInvoice = async () => {
-  if (!confirm("Generezi factura fiscală? Statusul lucrării va deveni COMPLETED.")) return;
+  if (!confirm("Generezi factura fiscala? Statusul lucrarii va deveni COMPLETED.")) return;
   
   try {
     const response = await fetch(`${serverUrl}/api/invoices/generate`, {
@@ -181,7 +181,7 @@ const generateInvoice = async () => {
 
 const markAsPaid = async () => {
   if (!job.value?.invoice) return;
-  if (!confirm("Confirm că ai încasat banii integral?")) return;
+  if (!confirm("Confirmi ca ai incasat banii integral?")) return;
 
   try {
     await $fetch(`${serverUrl}/api/invoices/${job.value.invoice.id}/pay`, { 
@@ -192,12 +192,38 @@ const markAsPaid = async () => {
     alert("Eroare la plată."); 
   }
 }
+
+const downloadInvoice = async () => {
+  if (!job.value?.invoice) return;
+
+  try {
+    const response = await fetch(`${serverUrl}/api/invoices/${job.value.invoice.id}/download`, {
+      credentials: 'include'
+    });
+    
+    if (!response.ok) {
+      throw new Error('Eroare la descarcarea facturii');
+    }
+    
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `factura-${job.value.invoice.id}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  } catch (e: any) {
+    alert(e.message || "Eroare la descarcarea facturii.");
+  }
+}
   </script>
   
   <template>
     <div class="page-container" v-if="job">
       <div class="top-bar">
-        <NuxtLink to="/dashboard">← Înapoi la Dashboard</NuxtLink>
+        <NuxtLink to="/dashboard">← Inapoi la Dashboard</NuxtLink>
         <span class="status-badge" :class="job.status">{{ job.status }}</span>
       </div>
   
@@ -209,8 +235,8 @@ const markAsPaid = async () => {
         </div>
         
         <div v-else-if="job.managerId === session?.data?.user?.id">
-          <span class="assigned-tag"> Ești managerul lucrării</span>
-          <NuxtLink v-if="!job.quote" :to="`/jobs/${job.id}/quote`" class="btn-quote">📝 Creează Ofertă</NuxtLink>
+          <span class="assigned-tag"> Esti managerul lucrarii</span>
+          <NuxtLink v-if="!job.quote" :to="`/jobs/${job.id}/quote`" class="btn-quote">Creează Ofertă</NuxtLink>
         </div>
       </header>
   
@@ -231,7 +257,7 @@ const markAsPaid = async () => {
   
       <div v-if="job.quote" class="quote-section">
         <div class="quote-header">
-          <h2>Ofertă Propusă</h2>
+          <h2>Oferta propusa</h2>
           <div class="quote-total">
             Total: {{ job.quote.totalAmount.toFixed(2) }} RON
           </div>
@@ -242,7 +268,7 @@ const markAsPaid = async () => {
             <tr>
               <th>Serviciu / Material</th>
               <th>Cant.</th>
-              <th>Preț Unit.</th>
+              <th>Pret Unit.</th>
               <th>Total</th>
             </tr>
           </thead>
@@ -254,10 +280,10 @@ const markAsPaid = async () => {
               <td>{{ item.total }}</td>
             </tr>
           </tbody>
-        </table>
+        </table>0
   
         <div v-if="(session?.data?.user as any)?.role === 'CLIENT' && !job.quote.isAccepted" class="client-actions">
-          <p>Ești de acord cu această ofertă?</p>
+          <p>Esti de acord cu aceasta oferta?</p>
           <div class="buttons">
             <button @click="respondToQuote(true)" class="btn-accept">Acceptă Oferta</button>
             <button @click="respondToQuote(false)" class="btn-reject">Refuză Oferta</button>
@@ -265,7 +291,7 @@ const markAsPaid = async () => {
         </div>
   
         <div v-if="job.quote.isAccepted" class="accepted-banner">
-          Oferta a fost acceptată! Urmează începerea lucrărilor.
+          Oferta a fost acceptata! Urmeaza inceperea lucrarilor.
         </div>
       </div>
       <div class="card mt-4">
@@ -278,14 +304,14 @@ const markAsPaid = async () => {
             v-if="(session?.data?.user as any)?.role === 'MANAGER' || job.managerId === session?.data?.user?.id"
             @click="deletePhoto(photo.id)"
             class="btn-delete-photo"
-            title="Șterge poză">×</button>
+            title="Sterge poza">×</button>
         </div>
       </div>
-      <p v-else class="text-muted">Nu există poze încă.</p>
+      <p v-else class="text-muted">Nu exista poze inca.</p>
 
       <div v-if="(session?.data?.user as any)?.role === 'MANAGER' || job.managerId === session?.data?.user?.id" class="upload-section">
         <label class="btn-upload" :class="{ disabled: isUploading }">
-          {{ isUploading ? 'Se încarcă...' : ' Adaugă Poză' }}
+          {{ isUploading ? 'Se incarca...' : ' Adaugă Poza' }}
           <input 
             type="file" 
             ref="fileInput" 
@@ -302,36 +328,37 @@ const markAsPaid = async () => {
       <div v-if="!job.invoice">
         <div v-if="(session?.data?.user as any)?.role === 'MANAGER' || (session?.data?.user as any)?.role === 'ADMIN'" class="invoice-actions">
            <h3> Lucrare Finalizată?</h3>
-           <p>Emite factura pentru a închide lucrarea și a cere plata.</p>
+           <p>Emite factura pentru a inchide lucrarea si a solicita plata.</p>
            <button @click="generateInvoice" class="btn-invoice"> Emite Factura</button>
         </div>
         <div v-else>
-            <p> Lucrarea este în desfășurare. Se așteaptă factura finală.</p>
+            <p> Lucrarea este in desfasurare. Se asteapta factura finala.</p>
         </div>
       </div>
 
       <div v-else-if="job.invoice" class="invoice-card">
         <div class="invoice-header">
-            <h2> Factura #{{ job.invoice.id }}</h2>
+            <h2>Factura</h2>
             <span class="status-badge" :class="job.invoice.status">
-              {{ job.invoice.status === 'PAID' ? 'PLĂTITĂ' : 'NEPLĂTITĂ' }}
+              {{ job.invoice.status === 'PAID' ? 'PLATITA' : 'NEPLATITA' }}
             </span>
-        </div>
+            <button @click="downloadInvoice" class="btn-download-invoice">Descarca Factura</button>
+            </div>
         
         <div class="invoice-body">
-          <p><strong>Total de Plată:</strong> <span class="amount">{{ job.invoice.totalAmount }} RON</span></p>
+          <p><strong>Total de Plata:</strong> <span class="amount">{{ job.invoice.totalAmount }} RON</span></p>
           <p><strong>Achitat:</strong> {{ job.invoice.amountPaid }} RON</p>
           <p><strong>Data Scadentă:</strong> {{ new Date(job.invoice.dueDate).toLocaleDateString() }}</p>
         </div>
         
         <div v-if="job.invoice.status === 'UNPAID' && ((session?.data?.user as any)?.role === 'MANAGER' || (session?.data?.user as any)?.role === 'ADMIN')">
             <hr>
-            <button @click="markAsPaid" class="btn-pay"> Marchează ca Plătit</button>
+            <button @click="markAsPaid" class="btn-pay"> Marca ca Plata</button>
         </div>
       </div>
     </div>
     </div>
-    <div v-else class="loading">Se încarcă...</div>
+    <div v-else class="loading">Se incarca...</div>
   </template>
   
   <style scoped>
@@ -405,6 +432,17 @@ const markAsPaid = async () => {
 }
 .btn-upload:hover { background: #5a32a3; }
 .btn-upload.disabled { opacity: 0.7; cursor: not-allowed; }
+
+/* Buton Descarcare */
+.btn-download-invoice {
+  background: #6f42c1;
+  color: white;
+  border: none;
+  padding: 12px 25px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.btn-download-invoice:hover { background: #5a32a3; }
 
 .invoice-section { 
   margin-top: 30px; 

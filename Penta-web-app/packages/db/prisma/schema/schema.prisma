@@ -27,11 +27,11 @@ enum JobStatus {
 }
 
 enum PaymentStatus {
-  UNPAID
-  PARTIAL
-  PAID
-  OVERDUE
+  EMITTED_UNPAID 
+  PARTIALLY_PAID
+  PAID_IN_FULL
   CANCELLED
+  OVERDUE
 }
 
 enum OrderStatus {
@@ -179,7 +179,7 @@ model Invoice {
   issueDate   DateTime      @default(now()) @map("issue_date") 
   dueDate     DateTime      @map("due_date")
   
-  status      PaymentStatus @default(UNPAID) @map("status")
+  status      PaymentStatus @default(EMITTED_UNPAID) @map("status")
   
   totalAmount Float         @map("total_amount")
   amountPaid  Float         @default(0) @map("amount_paid")
