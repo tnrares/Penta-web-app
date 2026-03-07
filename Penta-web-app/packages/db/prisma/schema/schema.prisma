@@ -64,6 +64,10 @@ model User {
   invoices      Invoice[]
   purchaseOrders PurchaseOrder[]
 
+  conversationsAsClient  Conversation[] @relation("ConversationClient")
+  conversationsAsManager Conversation[] @relation("ConversationManager")
+  chatMessagesSent       ChatMessage[]
+
   @@map("user")
 }
 
@@ -135,7 +139,9 @@ model Job {
   quote              Quote?
   invoice            Invoice?
   materials          JobMaterial[]
+  customMaterials    JobCustomMaterial[]
   photos             JobPhoto[]
+  documents          JobDocument[]
 
   @@map("jobs")
 }
@@ -242,6 +248,19 @@ model JobMaterial {
   @@map("job_materials")
 }
 
+model JobCustomMaterial {
+  id             String   @id @default(cuid()) @map("id")
+  jobId         Int      @map("job_id")
+  materialName  String   @map("material_name")
+  quantityUsed  Float    @map("quantity_used")
+  unit          String   @map("unit")
+  unitCostAtTime Float   @map("unit_cost_at_time")
+
+  job            Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@map("job_custom_materials")
+}
+
 model PurchaseOrder {
   id           Int           @id @default(autoincrement()) @map("id")
   supplierId   Int           @map("supplier_id")
@@ -279,4 +298,46 @@ model JobPhoto {
   createdAt DateTime @default(now())
 
   job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+}
+
+model JobDocument {
+  id        String   @id @default(cuid())
+  jobId     Int
+  url       String   // Calea către fișier (ex: "/uploads/document1.pdf")
+  fileName  String   @map("file_name")
+  fileSize  Int?     @map("file_size") // mărimea în bytes
+  mimeType  String?  @map("mime_type") // tipul MIME (ex: "application/pdf")
+  uploadedBy String  @map("uploaded_by") // ID-ul utilizatorului care a încărcat
+  createdAt DateTime @default(now()) @map("created_at")
+
+  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@map("job_documents")
+}
+
+model Conversation {
+  id         String   @id @default(cuid()) @map("id")
+  clientId   String   @map("client_id")
+  managerId String   @map("manager_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  client     User         @relation("ConversationClient", fields: [clientId], references: [id], onDelete: Cascade)
+  manager    User         @relation("ConversationManager", fields: [managerId], references: [id], onDelete: Cascade)
+  messages   ChatMessage[]
+
+  @@unique([clientId, managerId])
+  @@map("conversations")
+}
+
+model ChatMessage {
+  id             String   @id @default(cuid()) @map("id")
+  conversationId String   @map("conversation_id")
+  senderId       String   @map("sender_id")
+  content        String   @map("content")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@map("chat_messages")
 }

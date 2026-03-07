@@ -7,6 +7,7 @@ import { onError } from "@orpc/server";
 import { createContext } from "../../../packages/api/src/context";
 import { appRouter } from "../../../packages/api/src/routers";
 import { auth } from "../../../packages/auth/src";
+import prisma from "@Penta-web-app/db";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
@@ -16,6 +17,11 @@ import { quotesRouter } from "./routes/quotes";
 import { uploadsRouter } from "./routes/upload";
 import { serveStatic } from "hono/bun";
 import { invoicesRouter } from "./routes/invoices";
+import { chatRouter } from "./routes/chat";
+import { clientsRouter } from "./routes/clients";
+
+// WebSocket rooms: conversationId -> Set of WebSocket
+const wsRooms = new Map<string, Set<import("bun").ServerWebSocket<{ userId: string; conversationId: string }>>>();
 
 const app = new Hono();
 
@@ -55,6 +61,8 @@ app.route("/api/jobs", jobsRouter);
 app.route("/api/quotes", quotesRouter);
 app.route("/api/uploads", uploadsRouter);
 app.route("/api/invoices", invoicesRouter);
+app.route("/api/chat", chatRouter);
+app.route("/api/clients", clientsRouter);
 
 export const rpcHandler = new RPCHandler(appRouter, {
 	interceptors: [
@@ -110,5 +118,79 @@ app.options("/*", (c) => {
   return c.body(null, 204);
 });
 
+const port = Number(process.env.PORT) || 3000;
 
-export default app;
+Bun.serve({
+  port,
+  fetch: async (req, server) => {
+    const url = new URL(req.url);
+    if (url.pathname === "/api/chat/ws" && req.headers.get("Upgrade") === "websocket") {
+      const session = await auth.api.getSession({ headers: req.headers });
+      if (!session) return new Response("Unauthorized", { status: 401 });
+      const conversationId = url.searchParams.get("conversationId");
+      if (!conversationId) return new Response("conversationId required", { status: 400 });
+      const conv = await prisma.conversation.findUnique({ where: { id: conversationId } });
+      if (!conv || (conv.clientId !== session.user.id && conv.managerId !== session.user.id)) {
+        return new Response("Forbidden", { status: 403 });
+      }
+      const ok = server.upgrade(req, {
+        data: { userId: session.user.id, conversationId }
+      });
+      if (!ok) return new Response("Upgrade failed", { status: 500 });
+      return undefined;
+    }
+    return app.fetch(req);
+  },
+  websocket: {
+    open(ws) {
+      const { conversationId } = ws.data;
+      if (!wsRooms.has(conversationId)) wsRooms.set(conversationId, new Set());
+      wsRooms.get(conversationId)!.add(ws);
+    },
+    async message(ws, message) {
+      const { userId, conversationId } = ws.data;
+      try {
+        const text = typeof message === "string" ? message : message.toString();
+        const body = JSON.parse(text) as { type?: string; content?: string };
+        if (body.type !== "message" || typeof body.content !== "string") return;
+        const content = body.content.trim();
+        if (!content) return;
+
+        const msg = await prisma.chatMessage.create({
+          data: { conversationId, senderId: userId, content },
+          include: { sender: { select: { id: true, name: true } } }
+        });
+
+        const payload = JSON.stringify({
+          type: "new_message",
+          message: {
+            id: msg.id,
+            senderId: msg.senderId,
+            content: msg.content,
+            createdAt: msg.createdAt,
+            sender: msg.sender
+          }
+        });
+
+        const room = wsRooms.get(conversationId);
+        if (room) {
+          for (const s of room) {
+            if (s.readyState === 1) s.send(payload);
+          }
+        }
+      } catch (e) {
+        console.error("WS message error:", e);
+      }
+    },
+    close(ws) {
+      const { conversationId } = ws.data;
+      const room = wsRooms.get(conversationId);
+      if (room) {
+        room.delete(ws);
+        if (room.size === 0) wsRooms.delete(conversationId);
+      }
+    }
+  }
+});
+
+console.log(`Server listening on http://localhost:${port}`);

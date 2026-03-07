@@ -13,7 +13,7 @@
     "@Penta-web-app/api": "workspace:*",
     "@Penta-web-app/auth": "workspace:*",
     "@nuxt/content": "^3.7.1",
-    "@nuxt/ui": "^4.0.0",
+    "@nuxt/ui": "^4.5.1",
     "@nuxtjs/mdc": "^0.17.4",
     "@orpc/client": "catalog:",
     "@orpc/server": "catalog:",

@@ -1,8 +1,25 @@
 <script setup lang="ts">
-  const { $orpc } = useNuxtApp()
   import { useQuery } from '@tanstack/vue-query'
+  
+  const { $orpc } = useNuxtApp()
+  const config = useRuntimeConfig()
 
-  const healthCheck = useQuery($orpc.healthCheck.queryOptions())
+  const healthCheck = useQuery({
+    ...$orpc.healthCheck.queryOptions(),
+    retry: 1,
+    retryDelay: 1000,
+  })
+
+  // Debug logging
+  watchEffect(() => {
+    console.log('Health check status:', healthCheck.status.value)
+    if (healthCheck.error.value) {
+      console.error('Health check error:', healthCheck.error.value)
+    }
+    if (healthCheck.data.value) {
+      console.log('Health check data:', healthCheck.data.value)
+    }
+  })
 </script>
 
 <template>

@@ -6,14 +6,19 @@ import { UAvatar } from '#components'
 const { $authClient } = useNuxtApp()
 const session = $authClient.useSession()
 
-const links = [
+const userRole = computed(() => (session?.data?.value?.user as { role?: string })?.role)
+
+const links = computed(() => {
+  const base = [
     { to: "/dashboard", label: "Jobs", icon: "i-heroicons-briefcase" },
-    { to: "/clients", label: "Clients", icon: "i-heroicons-users" },
+    { to: "/clients", label: userRole.value === "CLIENT" ? "Chat" : "Clients", icon: "i-heroicons-chat-bubble-left-right" },
     { to: "/workers", label: "Workers", icon: "i-heroicons:wrench-screwdriver" },
     { to: "/inventory", label: "Inventory", icon: "i-heroicons-building-office" },
     { to: "/finance", label: "Finances", icon: "i-heroicons-banknotes" },
     { to: "/settings", label: "Settings", icon: "i-heroicons-cog-6-tooth" }
-];
+  ]
+  return base
+})
 </script>
 
 <template>
@@ -41,8 +46,8 @@ const links = [
 
         <USeparator class="bg-gray-800 align-bottom" />
         <NuxtLink to="/account" class="flex items-center gap-3 px-2 py-2 hover:bg-gray-800/50 rounded-md transition-colors cursor-pointer w-full text-left">
-          <uAvatar
-            src="session?.data?.user?.image || undefined"
+          <UAvatar
+            :src="session?.data?.user?.image || undefined"
             class="w-10 h-10"
           />
           <div class="flex flex-col">
