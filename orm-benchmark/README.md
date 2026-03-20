@@ -54,10 +54,20 @@ docker-compose up -d
 
 ```
 orm-benchmark/
-├── docker-compose.yml    # Configurație Docker pentru PostgreSQL
+├── docker-compose.yml    # Configurație Docker pentru PostgreSQL și k6
 ├── package.json          # Dependencies și scripturi npm
 ├── tsconfig.json         # Configurație TypeScript
-└── node_modules/         # Dependencies instalate
+├── seed.ts               # Script pentru popularea bazei de date
+├── server-drizzle/       # Server Fastify cu Drizzle ORM (port 3001)
+│   ├── index.ts
+│   ├── schema.ts
+│   └── drizzle.config.ts
+├── server-prisma/        # Server Fastify cu Prisma ORM (port 3002)
+│   ├── index.ts
+│   └── prisma/
+│       └── schema.prisma
+└── k6-scripts/           # Scripturi de load testing
+    └── load-test.js
 ```
 
 ## Utilizare
@@ -173,6 +183,55 @@ Când rulezi k6 în Docker și serverul rulează pe host:
 - **Windows/Mac**: Folosește `host.docker.internal` (setat implicit)
 - **Linux**: Poate fi necesar să folosești IP-ul host-ului sau să adaugi `extra_hosts` în docker-compose.yml
 
+## Rulare Servere
+
+### Server Drizzle (port 3001)
+
+```bash
+# Metoda 1: Folosind npm script
+npm run server:drizzle
+
+# Metoda 2: Direct din director
+cd server-drizzle
+npx ts-node index.ts
+```
+
+### Server Prisma (port 3002)
+
+**Prima dată, generează Prisma Client:**
+```bash
+cd server-prisma
+npm run generate
+```
+
+**Apoi rulează serverul:**
+```bash
+# Metoda 1: Folosind npm script
+npm run server:prisma
+
+# Metoda 2: Direct din director
+cd server-prisma
+npx ts-node index.ts
+```
+
+**Notă:** Serverul Prisma necesită un fișier `.env` în directorul `server-prisma/` cu:
+```
+DATABASE_URL="postgresql://admin:password123@localhost:5432/benchmark"
+```
+
+## Endpoints Disponibile
+
+Ambele servere expun aceleași endpoint-uri:
+
+- `GET /users` - Listă simplă de utilizatori (limit 50)
+- `GET /users-with-posts` - Utilizatori cu postările asociate (JOIN)
+- `POST /insert-user` - Inserare utilizator nou
+- `PUT /update-user` - Actualizare utilizator (id=1)
+
 ## Scripturi Disponibile
 
 - `npm test` - rulează testele (în prezent nu sunt configurate)
+- `npm run server:drizzle` - pornește serverul Drizzle
+- `npm run server:prisma` - pornește serverul Prisma
+- `npm run prisma:generate` - generează Prisma Client
+- `npm run k6` - rulează testele de load cu k6

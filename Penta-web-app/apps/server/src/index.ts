@@ -19,9 +19,18 @@ import { serveStatic } from "hono/bun";
 import { invoicesRouter } from "./routes/invoices";
 import { chatRouter } from "./routes/chat";
 import { clientsRouter } from "./routes/clients";
+import { dashboardRouter } from "./routes/dashboard";
+import { workersRouter } from "./routes/workers";
+import { settingsRouter } from "./routes/settings";
 
-// WebSocket rooms: conversationId -> Set of WebSocket
-const wsRooms = new Map<string, Set<import("bun").ServerWebSocket<{ userId: string; conversationId: string }>>>();
+type PrismaWithChat = typeof prisma & {
+  conversation: { findUnique: (args: unknown) => Promise<{ id: string; clientId: string; managerId: string } | null> };
+  chatMessage: { create: (args: unknown) => Promise<unknown> };
+};
+const db = prisma as PrismaWithChat;
+
+type WsData = { userId: string; conversationId: string };
+const wsRooms = new Map<string, Set<import("bun").ServerWebSocket<WsData>>>();
 
 const app = new Hono();
 
@@ -63,6 +72,9 @@ app.route("/api/uploads", uploadsRouter);
 app.route("/api/invoices", invoicesRouter);
 app.route("/api/chat", chatRouter);
 app.route("/api/clients", clientsRouter);
+app.route("/api/dashboard", dashboardRouter);
+app.route("/api/workers", workersRouter);
+app.route("/api/settings", settingsRouter);
 
 export const rpcHandler = new RPCHandler(appRouter, {
 	interceptors: [
@@ -129,13 +141,13 @@ Bun.serve({
       if (!session) return new Response("Unauthorized", { status: 401 });
       const conversationId = url.searchParams.get("conversationId");
       if (!conversationId) return new Response("conversationId required", { status: 400 });
-      const conv = await prisma.conversation.findUnique({ where: { id: conversationId } });
+      const conv = await db.conversation.findUnique({ where: { id: conversationId } });
       if (!conv || (conv.clientId !== session.user.id && conv.managerId !== session.user.id)) {
         return new Response("Forbidden", { status: 403 });
       }
       const ok = server.upgrade(req, {
         data: { userId: session.user.id, conversationId }
-      });
+      } as unknown as Parameters<typeof server.upgrade>[1]);
       if (!ok) return new Response("Upgrade failed", { status: 500 });
       return undefined;
     }
@@ -143,12 +155,14 @@ Bun.serve({
   },
   websocket: {
     open(ws) {
-      const { conversationId } = ws.data;
+      const w = ws as unknown as import("bun").ServerWebSocket<WsData>;
+      const { conversationId } = w.data;
       if (!wsRooms.has(conversationId)) wsRooms.set(conversationId, new Set());
-      wsRooms.get(conversationId)!.add(ws);
+      wsRooms.get(conversationId)!.add(w);
     },
     async message(ws, message) {
-      const { userId, conversationId } = ws.data;
+      const w = ws as unknown as import("bun").ServerWebSocket<WsData>;
+      const { userId, conversationId } = w.data;
       try {
         const text = typeof message === "string" ? message : message.toString();
         const body = JSON.parse(text) as { type?: string; content?: string };
@@ -156,10 +170,10 @@ Bun.serve({
         const content = body.content.trim();
         if (!content) return;
 
-        const msg = await prisma.chatMessage.create({
+        const msg = await db.chatMessage.create({
           data: { conversationId, senderId: userId, content },
           include: { sender: { select: { id: true, name: true } } }
-        });
+        }) as { id: string; senderId: string; content: string; createdAt: Date; sender: { id: string; name: string } };
 
         const payload = JSON.stringify({
           type: "new_message",
@@ -183,10 +197,11 @@ Bun.serve({
       }
     },
     close(ws) {
-      const { conversationId } = ws.data;
+      const w = ws as unknown as import("bun").ServerWebSocket<WsData>;
+      const { conversationId } = w.data;
       const room = wsRooms.get(conversationId);
       if (room) {
-        room.delete(ws);
+        room.delete(w);
         if (room.size === 0) wsRooms.delete(conversationId);
       }
     }

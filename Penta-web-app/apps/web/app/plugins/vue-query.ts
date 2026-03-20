@@ -16,6 +16,12 @@ export default defineNuxtPlugin((nuxt) => {
 	const toast = useToast();
 
 	const queryClient = new QueryClient({
+		defaultOptions: {
+			queries: {
+				staleTime: 60_000,
+				retry: 1,
+			},
+		},
 		queryCache: new QueryCache({
 			onError: (error) => {
 				console.log(error);

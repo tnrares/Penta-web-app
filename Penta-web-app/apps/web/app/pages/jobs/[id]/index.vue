@@ -305,8 +305,8 @@ const getStatusColor = (status: string) => {
     'QUOTE_SENT': 'text-blue-400 bg-blue-400/10 ring-blue-400/20',
     'QUOTE_ACCEPTED': 'text-indigo-400 bg-indigo-400/10 ring-indigo-400/20',
     'IN_PROGRESS': 'text-teal-400 bg-teal-400/10 ring-teal-400/20',
-    'FINALIZED': 'text-green-400 bg-green-400/10 ring-green-400/20',
-    'CLOSED_PAID': 'text-emerald-400 bg-emerald-400/10 ring-emerald-400/20',
+    'FINALIZED': 'penta-status-ok',
+    'CLOSED_PAID': 'penta-status-ok',
     'CANCELED': 'text-red-400 bg-red-400/10 ring-red-400/20'
   }
   return map[status] || 'text-gray-400 bg-gray-400/10 ring-gray-400/20'
@@ -495,7 +495,7 @@ const isLightboxOpen = computed({
 <template>
   <div v-if="pending" class="flex justify-center items-center h-full text-gray-500">Se încarcă detaliile...</div>
   
-  <div v-else-if="job" class="max-w-7xl mx-auto pb-24 text-white">
+  <div v-else-if="job" class="max-w-7xl mx-auto pb-10 text-white">
     <div class="flex flex-col md:flex-row md:justify-between md:items-start gap-4 mb-8">
       <div class="flex items-start gap-4">
         <NuxtLink to="/dashboard" class="mt-2 text-gray-400 hover:text-white transition-colors">
@@ -511,7 +511,7 @@ const isLightboxOpen = computed({
   <span :class="['px-3 py-1 rounded-full text-xs font-medium ring-1 ring-inset', getStatusColor(job.status)]">
     {{ getStatusLabel(job.status) }}
   </span>
-  <UButton :to="`/jobs/${job.id}/edit`" icon="i-heroicons-pencil-square" bg="green" variant="ghost" class="text-green-400 ring-1 ring-green-900/50 bg-green-950/20 hover:bg-green-900/40">
+  <UButton :to="`/jobs/${job.id}/edit`" icon="i-heroicons-pencil-square" variant="ghost" class="penta-btn-ghost-accent">
     Edit Job
   </UButton> 
   <UButton @click="deleteJob" :loading="isDeleting" icon="i-heroicons-trash" bg="red" variant="ghost" class="text-red-400 ring-1 ring-red-900/50 bg-red-950/20 hover:bg-red-900/40">
@@ -526,7 +526,7 @@ const isLightboxOpen = computed({
         <span class="text-gray-300 font-medium">{{ progressPercent }}%</span>
       </div>
       <div class="w-full bg-gray-800 rounded-full h-1.5">
-        <div class="bg-green-500 h-1.5 rounded-full transition-all duration-300" :style="{ width: `${progressPercent}%` }"></div>
+        <div class="penta-progress-fill h-1.5 rounded-full transition-all duration-300" :style="{ width: `${progressPercent}%` }"></div>
       </div>
     </div>
 
@@ -591,10 +591,10 @@ const isLightboxOpen = computed({
             <p class="text-sm text-gray-400 mb-3">Scope of Work</p>
             <ul class="space-y-2">
               <li class="flex items-center gap-2 text-sm text-gray-300">
-                <UIcon name="i-heroicons-check-circle" class="w-5 h-5 text-green-500" /> Initial site assessment and planning
+                <UIcon name="i-heroicons-check-circle" class="w-5 h-5 penta-text-accent" /> Initial site assessment and planning
               </li>
               <li class="flex items-center gap-2 text-sm text-gray-300">
-                <UIcon name="i-heroicons-check-circle" class="w-5 h-5 text-green-500" /> Execution
+                <UIcon name="i-heroicons-check-circle" class="w-5 h-5 penta-text-accent" /> Execution
               </li>
             </ul>
           </div>
@@ -603,7 +603,7 @@ const isLightboxOpen = computed({
         <div class="bg-[#121212] ring-1 ring-gray-800/60 rounded-xl p-6">
           <div class="flex justify-between items-center mb-4">
             <h3 class="text-lg font-semibold">Materials Used</h3>
-            <UButton icon="i-heroicons-plus" size="sm" @click="openAddMaterial" class="bg-green-600 hover:bg-green-500 text-white">
+            <UButton icon="i-heroicons-plus" size="sm" @click="openAddMaterial" class="penta-btn-primary">
               Add Material
             </UButton>
           </div>
@@ -659,7 +659,7 @@ const isLightboxOpen = computed({
             <h3 class="text-lg font-semibold">Photos</h3>
             <div>
               <input ref="photoInput" type="file" accept="image/*" class="hidden" @change="handlePhotoUpload" />
-              <UButton icon="i-heroicons-photo" size="sm" :loading="isUploadingPhoto" @click="triggerPhotoUpload" class="bg-green-600 hover:bg-green-500 text-white">
+              <UButton icon="i-heroicons-photo" size="sm" :loading="isUploadingPhoto" @click="triggerPhotoUpload" class="penta-btn-primary">
                 Upload
               </UButton>
             </div>
@@ -687,7 +687,7 @@ const isLightboxOpen = computed({
                 <UIcon 
                   v-if="['PENDING_VISIT', 'QUOTE_SENT', 'QUOTE_ACCEPTED', 'IN_PROGRESS', 'FINALIZED', 'CLOSED_PAID'].includes(job.status)"
                   name="i-heroicons-check-circle" 
-                  class="w-5 h-5 text-green-500" 
+                  class="w-5 h-5 penta-text-accent" 
                 />
                 <div v-else class="w-5 h-5 rounded-full border-2 border-gray-600 bg-gray-800"></div>
               </div>
@@ -705,7 +705,7 @@ const isLightboxOpen = computed({
                 <UIcon 
                   v-if="['QUOTE_SENT', 'QUOTE_ACCEPTED', 'IN_PROGRESS', 'FINALIZED', 'CLOSED_PAID'].includes(job.status)"
                   name="i-heroicons-check-circle" 
-                  class="w-5 h-5 text-green-500" 
+                  class="w-5 h-5 penta-text-accent" 
                 />
                 <div v-else class="w-5 h-5 rounded-full border-2 border-gray-600 bg-gray-800"></div>
               </div>
@@ -723,7 +723,7 @@ const isLightboxOpen = computed({
                 <UIcon 
                   v-if="['QUOTE_ACCEPTED', 'IN_PROGRESS', 'FINALIZED', 'CLOSED_PAID'].includes(job.status)"
                   name="i-heroicons-check-circle" 
-                  class="w-5 h-5 text-green-500" 
+                  class="w-5 h-5 penta-text-accent" 
                 />
                 <div v-else class="w-5 h-5 rounded-full border-2 border-gray-600 bg-gray-800"></div>
               </div>
@@ -737,7 +737,7 @@ const isLightboxOpen = computed({
                 <UIcon 
                   v-if="['IN_PROGRESS', 'FINALIZED', 'CLOSED_PAID'].includes(job.status)"
                   name="i-heroicons-check-circle" 
-                  class="w-5 h-5 text-green-500" 
+                  class="w-5 h-5 penta-text-accent" 
                 />
                 <div v-else class="w-5 h-5 rounded-full border-2 border-gray-600 bg-gray-800"></div>
               </div>
@@ -752,7 +752,7 @@ const isLightboxOpen = computed({
             </div>
             <div class="relative" v-if="['FINALIZED', 'CLOSED_PAID'].includes(job.status)">
               <div class="absolute -left-[21px] bg-[#121212] rounded-full p-0.5">
-                <UIcon name="i-heroicons-check-circle" class="w-5 h-5 text-green-500" />
+                <UIcon name="i-heroicons-check-circle" class="w-5 h-5 penta-text-accent" />
               </div>
               <div class="flex justify-between items-center pl-2">
                 <span class="text-sm text-gray-300">Finalized</span>
@@ -779,9 +779,8 @@ const isLightboxOpen = computed({
               <UButton 
                 as="span"
                 icon="i-heroicons-plus" 
-                bg="green" 
                 :loading="isUploading"
-                class="bg-green-500 hover:bg-green-600 text-white cursor-pointer"
+                class="penta-btn-primary cursor-pointer"
               >
                 {{ isUploading ? 'Se încarcă...' : 'Upload' }}
               </UButton>
@@ -797,7 +796,7 @@ const isLightboxOpen = computed({
               class="flex justify-between items-center p-3 ring-1 ring-gray-800 rounded-lg bg-[#18181b]"
             >
               <div class="flex items-center gap-3">
-                <UIcon name="i-heroicons-document-text" class="w-6 h-6 text-green-500" />
+                <UIcon name="i-heroicons-document-text" class="w-6 h-6 penta-text-accent" />
                 <div>
                   <p class="text-sm font-medium">{{ doc.fileName }}</p>
                   <p class="text-xs text-gray-500">
@@ -844,7 +843,7 @@ const isLightboxOpen = computed({
           <div class="space-y-3 text-sm border-t border-gray-800 pt-4 mb-6">
             <div class="flex justify-between">
               <span class="text-gray-400">Paid to Date</span>
-              <span class="text-green-500">{{ job.invoice?.amountPaid || '0' }} RON</span>
+              <span class="penta-text-accent">{{ job.invoice?.amountPaid || '0' }} RON</span>
             </div>
             <div class="flex justify-between">
               <span class="text-gray-400">Outstanding</span>
@@ -857,7 +856,7 @@ const isLightboxOpen = computed({
             @click="markAsPaid" 
             icon="i-heroicons-currency-dollar" 
             block 
-            class="bg-green-500 hover:bg-green-600 text-white py-2.5"
+            class="penta-btn-primary py-2.5"
           >
             Record Payment
           </UButton>
@@ -870,7 +869,7 @@ const isLightboxOpen = computed({
               <p class="text-xs text-gray-500 mb-1">Manager</p>
               <p class="font-medium">{{ job.manager.name }}</p>
               <p class="text-sm text-gray-400">{{ job.manager.email }}</p>
-              <UButton v-if="job.manager.email" size="xs" variant="ghost" class="mt-2 text-green-400" :href="`mailto:${job.manager.email}`">
+              <UButton v-if="job.manager.email" size="xs" variant="ghost" class="mt-2 penta-text-accent" :href="`mailto:${job.manager.email}`">
                 Contact Manager
               </UButton>
             </div>
@@ -879,14 +878,14 @@ const isLightboxOpen = computed({
               <p class="text-xs text-gray-500 mb-1">Worker</p>
               <p class="font-medium">{{ job.worker.name }}</p>
               <p class="text-sm text-gray-400">{{ job.worker.email }}</p>
-              <UButton v-if="job.worker.email" size="xs" variant="ghost" class="mt-2 text-green-400" :href="`mailto:${job.worker.email}`">
+              <UButton v-if="job.worker.email" size="xs" variant="ghost" class="mt-2 penta-text-accent" :href="`mailto:${job.worker.email}`">
                 Contact Worker
               </UButton>
             </div>
             <div v-else class="p-3 ring-1 ring-gray-800 rounded-lg">
               <p class="text-xs text-gray-500 mb-1">Worker</p>
               <p class="text-gray-500 text-sm mb-2">No worker assigned.</p>
-              <UButton v-if="workersList.length > 0" size="xs" @click="showAssignWorkerModal = true" class="bg-green-600 hover:bg-green-500 text-white">
+              <UButton v-if="workersList.length > 0" size="xs" @click="showAssignWorkerModal = true" class="penta-btn-primary">
                 Assign Worker
               </UButton>
             </div>
@@ -1023,7 +1022,7 @@ const isLightboxOpen = computed({
       </template>
       <template #footer>
         <UButton variant="ghost" @click="showMaterialModal = false">Anulare</UButton>
-        <UButton class="bg-green-600 hover:bg-green-500 text-white" @click="addMaterial">Adaugă</UButton>
+        <UButton class="penta-btn-primary" @click="addMaterial">Adaugă</UButton>
       </template>
     </UModal>
 
@@ -1042,7 +1041,7 @@ const isLightboxOpen = computed({
       </template>
       <template #footer>
         <UButton variant="ghost" @click="showAssignWorkerModal = false">Cancel</UButton>
-        <UButton class="bg-green-600 hover:bg-green-500 text-white" :disabled="!selectedWorkerId" @click="assignWorker">Assign</UButton>
+        <UButton class="penta-btn-primary" :disabled="!selectedWorkerId" @click="assignWorker">Assign</UButton>
       </template>
     </UModal>
 

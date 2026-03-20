@@ -6,7 +6,10 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "k6": "docker-compose run --rm k6",
-    "k6:port": "docker-compose run --rm -e PORT"
+    "k6:port": "docker-compose run --rm -e PORT",
+    "server:drizzle": "cd server-drizzle && npx ts-node index.ts",
+    "server:prisma": "cd server-prisma && npx ts-node index.ts",
+    "prisma:generate": "cd server-prisma && npm run generate"
   },
   "keywords": [],
   "author": "",

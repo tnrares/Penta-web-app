@@ -1,2 +1,125 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
+
+/* Accent (overridden at runtime via useAppAccent → :root) */
+@layer base {
+  :root {
+    --penta-accent: #22c55e;
+    --penta-accent-hover: #16a34a;
+    --penta-accent-subtle: rgba(34, 197, 94, 0.15);
+    --penta-accent-text-muted: rgba(74, 222, 128, 0.95);
+  }
+}
+
+@layer components {
+  /** Primary actions — uses dynamic accent */
+  .penta-btn-primary {
+    background-color: var(--penta-accent);
+    color: white;
+  }
+  .penta-btn-primary:hover {
+    background-color: var(--penta-accent-hover);
+  }
+
+  .penta-text-accent {
+    color: var(--penta-accent);
+  }
+
+  .penta-ring-accent {
+    --tw-ring-color: color-mix(in srgb, var(--penta-accent) 50%, transparent);
+  }
+
+  .penta-bg-subtle {
+    background-color: var(--penta-accent-subtle);
+  }
+
+  .penta-text-on-subtle {
+    color: var(--penta-accent-text-muted);
+  }
+
+  /** Logo / headings gradient */
+  .penta-gradient-text {
+    background-image: linear-gradient(
+      to right,
+      var(--penta-accent),
+      var(--penta-accent-hover)
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .penta-nav-active {
+    color: var(--penta-accent);
+  }
+
+  /** Tabs / pills (Finance, Clients, Workers, Jobs filters) */
+  .penta-pill-active {
+    background-color: var(--penta-accent);
+    color: white;
+    box-shadow: 0 0 0 1px var(--penta-accent);
+  }
+
+  /** Appearance theme cards */
+  .penta-theme-active {
+    box-shadow: 0 0 0 2px var(--penta-accent);
+    background-color: color-mix(in srgb, var(--penta-accent) 12%, transparent);
+  }
+
+  /** Selected row / card ring (lists) */
+  .penta-list-selected {
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--penta-accent) 55%, transparent);
+  }
+
+  /** Chat bubble (outgoing) */
+  .penta-chat-out {
+    background-color: color-mix(in srgb, var(--penta-accent) 82%, transparent);
+    color: white;
+  }
+
+  .penta-avatar-subtle {
+    background-color: color-mix(in srgb, var(--penta-accent) 22%, transparent);
+  }
+
+  .penta-progress-fill {
+    background-color: var(--penta-accent);
+  }
+
+  .penta-fab {
+    box-shadow: 0 10px 25px -5px color-mix(in srgb, var(--penta-accent) 35%, transparent);
+  }
+
+  .penta-btn-ghost-accent {
+    color: var(--penta-accent-text-muted);
+    background-color: color-mix(in srgb, var(--penta-accent) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--penta-accent) 35%, transparent);
+  }
+  .penta-btn-ghost-accent:hover {
+    background-color: color-mix(in srgb, var(--penta-accent) 22%, transparent);
+  }
+
+  /** Success / finalized badges (follows accent) */
+  .penta-status-ok {
+    color: var(--penta-accent-text-muted);
+    background-color: color-mix(in srgb, var(--penta-accent) 10%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--penta-accent) 28%, transparent);
+  }
+
+  /** Billing / promo cards */
+  .penta-billing-card {
+    background: linear-gradient(
+      to bottom right,
+      color-mix(in srgb, var(--penta-accent) 12%, transparent),
+      color-mix(in srgb, var(--penta-accent-hover) 5%, transparent)
+    );
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--penta-accent) 32%, transparent);
+  }
+
+  .penta-border-accent-soft {
+    border-color: color-mix(in srgb, var(--penta-accent) 22%, transparent);
+  }
+
+  .penta-gradient-chip {
+    background: linear-gradient(to bottom right, var(--penta-accent), var(--penta-accent-hover));
+  }
+}

@@ -52,6 +52,10 @@ model User {
   role          Role      @default(CLIENT) @map("role")
   companyName   String?   @map("company_name")
   cui           String?   @unique @map("cui")
+  bio           String?   @map("bio")
+  jobTitle      String?   @map("job_title")
+  /// JSON: notifications, appearance (accent, compact), company (address, etc.), security prefs
+  settings      Json?     @map("settings")
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 

@@ -4,15 +4,39 @@ import { auth } from "@Penta-web-app/auth";
 
 const app = new Hono();
 
-//GET
+// GET all – include supplier for list/detail
 app.get("/", async (c) => {
   try {
     const items = await prisma.inventoryItem.findMany({
-      orderBy: { id: 'desc' } // Cele mai noi primele
+      include: { supplier: { select: { id: true, name: true } } },
+      orderBy: { id: "desc" }
     });
     return c.json(items);
   } catch (e) {
     return c.json({ error: "Eroare la citire DB" }, 500);
+  }
+});
+
+// GET one – for detail panel (with supplier and recent usage from JobMaterial)
+app.get("/:id", async (c) => {
+  const id = parseInt(c.req.param("id"));
+  if (isNaN(id)) return c.json({ error: "ID invalid" }, 400);
+  try {
+    const item = await prisma.inventoryItem.findUnique({
+      where: { id },
+      include: {
+        supplier: { select: { id: true, name: true, contactEmail: true, phone: true } },
+        jobMaterials: {
+          take: 10,
+          orderBy: { jobId: "desc" },
+          include: { job: { select: { id: true, title: true, updatedAt: true } } }
+        }
+      }
+    });
+    if (!item) return c.json({ error: "Articol negăsit" }, 404);
+    return c.json(item);
+  } catch (e) {
+    return c.json({ error: "Eroare la citire" }, 500);
   }
 });
 
@@ -41,23 +65,47 @@ app.post("/", async (c) => {
   }
 });
 
-//PUT
+// PUT – full update (name, unitCost, currentStock, minStockAlert, supplierId)
 app.put("/:id", async (c) => {
   const id = parseInt(c.req.param("id"));
   const body = await c.req.json();
-
+  if (isNaN(id)) return c.json({ error: "ID invalid" }, 400);
   try {
+    const data: { name?: string; unit?: string; unitCost?: number; currentStock?: number; minStockAlert?: number; supplierId?: number | null } = {};
+    if (body.name != null) data.name = String(body.name);
+    if (body.unit != null) data.unit = String(body.unit);
+    if (body.unitCost != null) data.unitCost = parseFloat(body.unitCost);
+    if (body.currentStock != null) data.currentStock = parseFloat(body.currentStock);
+    if (body.minStockAlert != null) data.minStockAlert = parseFloat(body.minStockAlert);
+    if (body.supplierId !== undefined) data.supplierId = body.supplierId ? Number(body.supplierId) : null;
     const updatedItem = await prisma.inventoryItem.update({
       where: { id },
-      data: {
-        name: body.name,
-        unitCost: body.unitCost ? parseFloat(body.unitCost) : undefined,
-        currentStock: body.currentStock ? parseFloat(body.currentStock) : undefined,
-      }
+      data
     });
     return c.json(updatedItem);
   } catch (e) {
     return c.json({ error: "Materialul nu a fost găsit" }, 404);
+  }
+});
+
+// PATCH – stock adjustment (use stock / restock)
+app.patch("/:id/stock", async (c) => {
+  const id = parseInt(c.req.param("id"));
+  if (isNaN(id)) return c.json({ error: "ID invalid" }, 400);
+  try {
+    const body = await c.req.json();
+    const delta = Number(body.quantity ?? body.delta ?? 0);
+    if (!Number.isFinite(delta)) return c.json({ error: "quantity invalid" }, 400);
+    const item = await prisma.inventoryItem.findUnique({ where: { id }, select: { currentStock: true } });
+    if (!item) return c.json({ error: "Articol negăsit" }, 404);
+    const newStock = Math.max(0, item.currentStock + delta);
+    const updated = await prisma.inventoryItem.update({
+      where: { id },
+      data: { currentStock: newStock }
+    });
+    return c.json(updated);
+  } catch (e) {
+    return c.json({ error: "Eroare la actualizare stoc" }, 500);
   }
 });
 

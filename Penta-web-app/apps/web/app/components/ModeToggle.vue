@@ -13,13 +13,4 @@ const isDark = computed({
 })
 </script>
 
-<template>
-  <div class="flex items-center">
-    <USwitch
-      v-model="isDark"
-      :checked-icon="isDark ? 'i-lucide-moon' : ''"
-      :unchecked-icon="!isDark ? 'i-lucide-sun' : ''"
-      class="mr-2"
-    />
-  </div>
-</template>
+

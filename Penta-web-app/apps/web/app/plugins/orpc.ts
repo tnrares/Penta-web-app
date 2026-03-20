@@ -13,17 +13,23 @@ export default defineNuxtPlugin(() => {
 	}
 
 	const rpcUrl = `${serverUrl}/rpc`;
-	console.log('RPC URL:', rpcUrl);
+	if (import.meta.dev) {
+		console.log('RPC URL:', rpcUrl);
+	}
 
 	const rpcLink = new RPCLink({
 		url: rpcUrl,
 		fetch(url, options) {
-			console.log('RPC fetch:', url, options);
+			if (import.meta.dev) {
+				console.log('RPC fetch:', url, options);
+			}
 			return fetch(url, {
 				...options,
 				credentials: "include",
 			}).catch((error) => {
-				console.error('RPC fetch error:', error);
+				if (import.meta.dev) {
+					console.error('RPC fetch error:', error);
+				}
 				throw error;
 			});
 		},

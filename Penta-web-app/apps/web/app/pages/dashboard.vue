@@ -1,204 +1,342 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { defineAsyncComponent, defineComponent, h } from 'vue'
 
-const { $authClient } = useNuxtApp()
+const DashboardChartsPanel = defineAsyncComponent({
+  loader: () => import('~/components/charts/DashboardCharts.client.vue'),
+  delay: 150,
+  loadingComponent: defineComponent({
+    setup() {
+      return () =>
+        h('div', { class: 'grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8' }, [
+          h('div', { class: 'h-80 rounded-xl bg-[#121212] ring-1 ring-gray-800 animate-pulse' }),
+          h('div', { class: 'h-80 rounded-xl bg-[#121212] ring-1 ring-gray-800 animate-pulse' }),
+        ])
+    },
+  }),
+})
+
 const config = useRuntimeConfig()
 const serverUrl = config.public.serverURL || 'http://localhost:3000'
 
-const searchQuery = ref('')
-const activeFilter = ref('All Jobs')
-
-interface Job {
-  id: number
-  title: string
-  address: string
-  status: string
-  createdAt: string
-  quote?: { totalAmount: number } | null
-  client?: {
-    id: string
-    name: string
-    email: string
-    image?: string | null
+interface DashboardData {
+  stats?: {
+    monthlyRevenue: number
+    monthlyRevenueChange: number
+    monthlyRevenueDiff: number
+    activeJobs: number
+    activeJobsChange: number
+    totalClients: number
+    clientsChange: number
+    newClientsThisMonth: number
+    pendingIssues: number
+    criticalIssues: number
   }
+  revenueExpenses?: Array<{ label: string; revenue: number; expenses: number }>
+  jobStatus?: Array<{ label: string; count: number; color: string }>
+  recentJobs?: Array<{ id: number; title: string; date: string; value: number; status: string; dashboardStatus: string; progress: number; client?: { id: string; name: string; image?: string } }>
+  alerts?: Array<{ type: string; title: string; message: string; timeAgo: string; severity: string }>
+  topClients?: Array<{ id: string; name: string; jobs: number; revenue: number; growth: number }>
 }
 
-const { data: jobs, pending } = await useFetch<Job[]>(`${serverUrl}/api/jobs`, {
+const { data: dashboard, pending } = await useFetch<DashboardData>(`${serverUrl}/api/dashboard`, {
   credentials: 'include'
 })
 
-const filters = computed(() => {
-  const all = jobs.value?.length || 0
-  const pendingVisit = jobs.value?.filter(j => j.status === 'PENDING_VISIT').length || 0
-  const quoteSent = jobs.value?.filter(j => j.status === 'QUOTE_SENT').length || 0
-  const quoteAccepted = jobs.value?.filter(j => j.status === 'QUOTE_ACCEPTED').length || 0
-  const inProgress = jobs.value?.filter(j => j.status === 'IN_PROGRESS').length || 0
-  const finalized = jobs.value?.filter(j => j.status === 'FINALIZED').length || 0
-  const closedPaid = jobs.value?.filter(j => j.status === 'CLOSED_PAID').length || 0
-  const canceled = jobs.value?.filter(j => j.status === 'CANCELED').length || 0
+const today = computed(() => {
+  const d = new Date()
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+  return `${days[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`
+})
 
-  return [
-    { label: 'All Jobs', count: all, value: 'ALL' },
-    { label: 'Pending Visit', count: pendingVisit, value: 'PENDING_VISIT' },
-    { label: 'Quote Sent', count: quoteSent, value: 'QUOTE_SENT' },
-    { label: 'Quote Accepted', count: quoteAccepted, value: 'QUOTE_ACCEPTED' },
-    { label: 'In Progress', count: inProgress, value: 'IN_PROGRESS' },
-    { label: 'Finalized', count: finalized, value: 'FINALIZED' },
-    { label: 'Closed & Paid', count: closedPaid, value: 'CLOSED_PAID' },
-    { label: 'Canceled', count: canceled, value: 'CANCELED' }
+const stats = computed(() => dashboard.value?.stats ?? null)
+const revenueExpenses = computed(() => dashboard.value?.revenueExpenses ?? [])
+const jobStatus = computed(() => dashboard.value?.jobStatus ?? [])
+const recentJobs = computed(() => dashboard.value?.recentJobs ?? [])
+const alerts = computed(() => dashboard.value?.alerts ?? [])
+const topClients = computed(() => dashboard.value?.topClients ?? [])
+
+const revenueChartData = computed(() => ({
+  labels: revenueExpenses.value.map((m: { label: string }) => m.label),
+  datasets: [
+    { label: 'Revenue', data: revenueExpenses.value.map((m: { revenue: number }) => m.revenue), backgroundColor: '#3b82f6' },
+    { label: 'Expenses', data: revenueExpenses.value.map((m: { expenses: number }) => m.expenses), backgroundColor: '#ef4444' }
   ]
-})
+}))
 
-const filteredJobs = computed(() => {
-  if (!jobs.value) return []
-  let filtered = jobs.value
+const donutChartData = computed(() => ({
+  labels: jobStatus.value.map((s: { label: string }) => s.label),
+  datasets: [{
+    data: jobStatus.value.map((s: { count: number }) => s.count),
+    backgroundColor: jobStatus.value.map((s: { color: string }) => s.color),
+    borderWidth: 0
+  }]
+}))
 
-  if (activeFilter.value !== 'All Jobs') {
-    const filterValue = filters.value.find(f => f.label === activeFilter.value)?.value
-    filtered = filtered.filter(j => j.status === filterValue)
+const chartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { position: 'bottom' as const }
+  },
+  scales: {
+    y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#9ca3af' } },
+    x: { grid: { display: false }, ticks: { color: '#9ca3af' } }
   }
-
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase()
-    filtered = filtered.filter(j => 
-      j.title.toLowerCase().includes(query) || 
-      j.address.toLowerCase().includes(query)
-    )
-  }
-
-  return filtered
-})
-
-const getStatusClasses = (status: string) => {
-  const map: Record<string, string> = {
-    'PENDING_VISIT': 'text-orange-400 bg-orange-400/10 ring-orange-400/20',
-    'QUOTE_SENT': 'text-blue-400 bg-blue-400/10 ring-blue-400/20',
-    'QUOTE_ACCEPTED': 'text-indigo-400 bg-indigo-400/10 ring-indigo-400/20',
-    'IN_PROGRESS': 'text-teal-400 bg-teal-400/10 ring-teal-400/20',
-    'FINALIZED': 'text-green-400 bg-green-400/10 ring-green-400/20',
-    'CLOSED_PAID': 'text-emerald-400 bg-emerald-400/10 ring-emerald-400/20',
-    'CANCELED': 'text-red-400 bg-red-400/10 ring-red-400/20'
-  }
-  return map[status] || 'text-gray-400 bg-gray-400/10 ring-gray-400/20'
 }
 
-const getStatusLabel = (status: string) => {
-  const map: Record<string, string> = {
-    'PENDING_VISIT': 'Pending Visit',
-    'QUOTE_SENT': 'Quote Sent',
-    'QUOTE_ACCEPTED': 'Quote Accepted',
-    'IN_PROGRESS': 'In Progress',
-    'FINALIZED': 'Finalized',
-    'CLOSED_PAID': 'Closed & Paid',
-    'CANCELED': 'Canceled'
+const donutOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  cutout: '65%',
+  plugins: {
+    legend: { position: 'bottom' as const }
   }
-  return map[status] || status
+}
+
+function formatCurrency(v: number) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(v)
+}
+
+function getStatusClass(status: string) {
+  const map: Record<string, string> = {
+    'Completed': 'penta-status-ok',
+    'In Progress': 'text-blue-400 bg-blue-400/10',
+    'Scheduled': 'text-purple-400 bg-purple-400/10',
+    'Pending Quote': 'text-amber-400 bg-amber-400/10'
+  }
+  return map[status] || 'text-gray-400 bg-gray-400/10'
+}
+
+function getAlertBg(type: string) {
+  if (type.includes('Stock')) return 'bg-amber-500/10 border-amber-500/30'
+  if (type.includes('Out of Stock')) return 'bg-red-500/10 border-red-500/30'
+  if (type.includes('Overdue')) return 'bg-orange-500/10 border-orange-500/30'
+  if (type.includes('Deadline')) return 'bg-yellow-500/10 border-yellow-500/30'
+  return 'bg-gray-500/10 border-gray-500/30'
+}
+
+function getInitials(name: string) {
+  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 }
 </script>
 
 <template>
-  <div class="h-full flex flex-col relative max-w-5xl mx-auto text-white">
-    
-    <div class="flex justify-between items-start mb-6">
+  <div class="min-h-full text-white">
+    <!-- Header -->
+    <div class="flex justify-between items-start mb-8">
       <div>
-        <h1 class="text-3xl font-bold mb-1">Jobs</h1>
-        <p class="text-gray-400 text-sm">Manage and track all your projects</p>
+        <h1 class="text-3xl font-bold mb-1">Dashboard</h1>
+        <p class="text-gray-400">Welcome back! Here's what's happening with your business.</p>
       </div>
-      <UButton icon="i-heroicons-adjustments-horizontal" bg="gray" variant="ghost" class="text-gray-300 ring-1 ring-gray-700 bg-[#18181b] hover:bg-gray-800">
-        Advanced Filters
-      </UButton>
+      <div class="text-right text-sm">
+        <div class="text-gray-400">Today</div>
+        <div>{{ today }}</div>
+      </div>
     </div>
 
-    <div class="mb-6">
-      <UInput
-        v-model="searchQuery"
-        icon="i-heroicons-magnifying-glass"
-        placeholder="Search by client name or address..."
-        size="lg"
-        :ui="{ root: 'w-full', base: 'bg-[#18181b] border-gray-800 text-white placeholder-gray-500 ring-1 ring-gray-800 focus:ring-green-500' }"
+    <div v-if="pending" class="text-center py-20 text-gray-500">
+      Loading dashboard...
+    </div>
+
+    <template v-else>
+      <!-- Summary Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div class="bg-[#18181b] ring-1 ring-gray-800 rounded-xl p-5">
+          <div class="flex items-center gap-3 mb-2">
+            <div class="w-10 h-10 rounded-full penta-avatar-subtle flex items-center justify-center">
+              <UIcon name="i-heroicons-currency-dollar" class="w-5 h-5 penta-text-accent" />
+            </div>
+            <span class="text-gray-400 text-sm">Monthly Revenue</span>
+          </div>
+          <div class="text-2xl font-bold">{{ formatCurrency(stats?.monthlyRevenue ?? 0) }}</div>
+          <div class="flex items-center gap-2 mt-1">
+            <UIcon name="i-heroicons-arrow-trending-up" class="w-4 h-4 penta-text-accent" />
+            <span class="penta-text-accent text-sm">{{ stats?.monthlyRevenueChange ?? 0 }}%</span>
+            <span class="text-gray-500 text-xs">{{ (stats?.monthlyRevenueDiff ?? 0) >= 0 ? '+' : '' }}{{ formatCurrency(stats?.monthlyRevenueDiff ?? 0) }} from last month</span>
+          </div>
+        </div>
+
+        <div class="bg-[#18181b] ring-1 ring-gray-800 rounded-xl p-5">
+          <div class="flex items-center gap-3 mb-2">
+            <div class="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
+              <UIcon name="i-heroicons-briefcase" class="w-5 h-5 text-blue-400" />
+            </div>
+            <span class="text-gray-400 text-sm">Active Jobs</span>
+          </div>
+          <div class="text-2xl font-bold">{{ stats?.activeJobs ?? 0 }}</div>
+          <div class="flex items-center gap-2 mt-1">
+            <UIcon name="i-heroicons-chart-bar" class="w-4 h-4 text-blue-400" />
+            <span class="text-blue-400 text-sm">{{ stats?.activeJobsChange ?? 0 }}%</span>
+            <span class="text-gray-500 text-xs">4 scheduled this week</span>
+          </div>
+        </div>
+
+        <div class="bg-[#18181b] ring-1 ring-gray-800 rounded-xl p-5">
+          <div class="flex items-center gap-3 mb-2">
+            <div class="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
+              <UIcon name="i-heroicons-user-group" class="w-5 h-5 text-purple-400" />
+            </div>
+            <span class="text-gray-400 text-sm">Total Clients</span>
+          </div>
+          <div class="text-2xl font-bold">{{ stats?.totalClients ?? 0 }}</div>
+          <div class="flex items-center gap-2 mt-1">
+            <UIcon :name="(stats?.clientsChange ?? 0) >= 0 ? 'i-heroicons-arrow-trending-up' : 'i-heroicons-arrow-trending-down'" :class="[(stats?.clientsChange ?? 0) >= 0 ? 'penta-text-accent' : 'text-red-400']" class="w-4 h-4" />
+            <span :class="[(stats?.clientsChange ?? 0) >= 0 ? 'penta-text-accent' : 'text-red-400']" class="text-sm">{{ stats?.clientsChange ?? 0 }}%</span>
+            <span class="text-gray-500 text-xs">{{ stats?.newClientsThisMonth ?? 0 }} new this month</span>
+          </div>
+        </div>
+
+        <div class="bg-[#18181b] ring-1 ring-gray-800 rounded-xl p-5">
+          <div class="flex items-center gap-3 mb-2">
+            <div class="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center">
+              <UIcon name="i-heroicons-exclamation-triangle" class="w-5 h-5 text-orange-400" />
+            </div>
+            <span class="text-gray-400 text-sm">Pending Issues</span>
+          </div>
+          <div class="text-2xl font-bold">{{ stats?.pendingIssues ?? 0 }}</div>
+          <div class="flex items-center gap-2 mt-1">
+            <span class="text-gray-500 text-xs">{{ stats?.criticalIssues ?? 0 }} critical items</span>
+            <div class="flex items-center gap-1 text-orange-400">
+              <UIcon name="i-heroicons-bell-alert" class="w-4 h-4" />
+              <span class="text-xs">{{ alerts.length }} alerts</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <DashboardChartsPanel
+        :revenue-chart-data="revenueChartData"
+        :chart-options="chartOptions"
+        :donut-chart-data="donutChartData"
+        :donut-options="donutOptions"
+        :has-revenue-data="revenueExpenses.length > 0"
+        :has-job-status="jobStatus.length > 0"
       />
-    </div>
 
-    <div class="flex flex-wrap gap-3 mb-8">
-      <button
-        v-for="filter in filters"
-        :key="filter.label"
-        @click="activeFilter = filter.label"
-        :class="[
-          'flex items-center gap-2 px-4 py-2 rounded-full text-sm transition-colors ring-1',
-          activeFilter === filter.label 
-            ? 'bg-green-600 text-white ring-green-600' 
-            : 'bg-[#18181b] text-gray-400 ring-gray-800 hover:bg-gray-800'
-        ]"
-      >
-        <span>{{ filter.label }}</span>
-        <span 
-          :class="[
-            'px-2 py-0.5 rounded-full text-xs font-medium',
-            activeFilter === filter.label ? 'bg-green-500 text-white' : 'bg-gray-800 text-gray-300'
-          ]"
-        >
-          {{ filter.count }}
-        </span>
-      </button>
-    </div>
-
-    <div v-if="pending" class="text-center py-10 text-gray-500">Se încarcă...</div>
-
-    <div v-else class="flex flex-col gap-4 pb-24">
-      <NuxtLink v-for="job in filteredJobs" :key="job.id" :to="`/jobs/${job.id}`">
-      <div 
-        class="bg-[#121212] ring-1 ring-gray-800/60 rounded-xl p-5 hover:ring-gray-700 transition-all flex justify-between items-center group"
-      >
-        <div class="flex flex-col gap-2">
-          <h3 class="text-lg font-semibold">{{ job.title }}</h3>
-          
-          <div class="flex flex-col gap-1.5 mt-1">
-            <div class="flex items-center gap-2 text-gray-400 text-sm">
-              <UIcon name="i-heroicons-map-pin" class="w-4 h-4 flex-shrink-0" />
-              <span>{{ job.address }}</span>
-            </div>
-            <div class="flex items-center gap-2 text-gray-400 text-sm">
-              <UIcon name="i-heroicons-calendar" class="w-4 h-4 flex-shrink-0" />
-              <span>{{ new Date(job.createdAt).toLocaleDateString() }}</span>
+      <!-- Recent Jobs + Alerts -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div class="bg-[#18181b] ring-1 ring-gray-800 rounded-xl p-6">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">Recent Jobs</h3>
+            <NuxtLink to="/jobs" class="text-blue-400 text-sm hover:text-blue-300 flex items-center gap-1">
+              View All <UIcon name="i-heroicons-arrow-right" class="w-4 h-4" />
+            </NuxtLink>
+          </div>
+          <div class="space-y-4">
+            <NuxtLink
+              v-for="job in recentJobs"
+              :key="job.id"
+              :to="`/jobs/${job.id}`"
+              class="block bg-[#121212] ring-1 ring-gray-800 rounded-lg p-4 hover:ring-gray-700 transition-all"
+            >
+              <div class="flex justify-between items-start">
+                <h4 class="font-medium">{{ job.title }}</h4>
+                <span :class="['px-2 py-0.5 rounded text-xs font-medium', getStatusClass(job.dashboardStatus)]">
+                  {{ job.dashboardStatus }}
+                </span>
+              </div>
+              <div class="flex items-center gap-2 text-gray-500 text-sm mt-1">
+                <UIcon name="i-heroicons-calendar" class="w-4 h-4" />
+                {{ new Date(job.date).toLocaleDateString() }}
+              </div>
+              <div class="flex justify-between items-center mt-3">
+                <span class="font-semibold penta-text-accent">{{ formatCurrency(job.value) }}</span>
+                <div v-if="job.progress > 0" class="flex items-center gap-2">
+                  <div class="w-24 h-2 bg-gray-700 rounded-full overflow-hidden">
+                    <div class="h-full bg-blue-500 rounded-full" :style="{ width: job.progress + '%' }" />
+                  </div>
+                  <span class="text-xs text-gray-400">{{ job.progress }}%</span>
+                </div>
+              </div>
+            </NuxtLink>
+            <div v-if="recentJobs.length === 0" class="text-center py-8 text-gray-500">
+              No recent jobs
             </div>
           </div>
         </div>
 
-        <div class="flex flex-col items-end justify-between h-full min-h-[80px]">
-          <div class="flex items-center gap-4">
-            <span :class="['px-3 py-1 rounded-full text-xs font-medium ring-2 ring-inset', getStatusClasses(job.status)]">
-              {{ getStatusLabel(job.status) }}
-            </span>
-            <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <NuxtLink :to="`/jobs/${job.id}`">
-                </NuxtLink>
+        <div class="bg-[#18181b] ring-1 ring-gray-800 rounded-xl p-6">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">Alerts</h3>
+            <span v-if="alerts.length" class="px-2 py-0.5 rounded bg-red-500/20 text-red-400 text-sm">{{ alerts.length }} new</span>
+          </div>
+          <div class="space-y-3">
+            <div
+              v-for="(alert, idx) in alerts"
+              :key="idx"
+              :class="['rounded-lg p-4 ring-1', getAlertBg(alert.type)]"
+            >
+              <div class="flex gap-3">
+                <UIcon
+                  v-if="alert.type.includes('Stock')"
+                  name="i-heroicons-cube"
+                  class="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5"
+                />
+                <UIcon
+                  v-else-if="alert.type.includes('Overdue')"
+                  name="i-heroicons-currency-dollar"
+                  class="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5"
+                />
+                <UIcon
+                  v-else-if="alert.type.includes('Out of Stock')"
+                  name="i-heroicons-cube-transparent"
+                  class="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5"
+                />
+                <UIcon
+                  v-else
+                  name="i-heroicons-briefcase"
+                  class="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5"
+                />
+                <div class="flex-1 min-w-0">
+                  <div class="font-medium text-sm">{{ alert.title }}</div>
+                  <div class="text-gray-400 text-xs mt-0.5">{{ alert.message }}</div>
+                  <div v-if="alert.timeAgo" class="text-gray-500 text-xs mt-1">{{ alert.timeAgo }}</div>
+                </div>
+              </div>
             </div>
-          </div>
-          
-          <div class="text-xl font-bold mt-auto">
-            <NuxtLink :to="`/clients/${job.client?.id}`" class="flex items-center gap-3 px-2 py-2 hover:bg-gray-800/50 rounded-md transition-colors cursor-pointer w-full text-left">
-          <UAvatar
-            :src="job.client?.image || undefined"
-            class="w-10 h-10"
-          />
-          <div class="flex flex-col">
-            <h3 class="text-sm font-medium">{{ job.client?.name }}</h3>
-            <p class="text-xs text-gray-500">{{ job.client?.email }}</p> 
-          </div>
-      </NuxtLink>
+            <div v-if="alerts.length === 0" class="text-center py-8 text-gray-500">
+              No alerts
+            </div>
           </div>
         </div>
       </div>
-    </NuxtLink>
-      <div v-if="filteredJobs.length === 0" class="text-center py-10 text-gray-500">
-        Nu s-au găsit lucrări conform filtrelor.
-      </div>
-    </div>
 
-    <NuxtLink to="/jobs/new" class="fixed bottom-8 right-8 bg-green-500 hover:bg-green-600 text-white rounded-full p-4 shadow-lg shadow-green-500/20 transition-transform hover:scale-105 flex items-center justify-center">
-      <UIcon name="i-heroicons-plus" class="w-8 h-8" />
-    </NuxtLink>
-    
+      <!-- Top Clients -->
+      <div v-if="topClients.length" class="bg-[#18181b] ring-1 ring-gray-800 rounded-xl p-6">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-lg font-semibold">Top Clients</h3>
+          <NuxtLink to="/clients" class="text-blue-400 text-sm hover:text-blue-300 flex items-center gap-1">
+            View All Clients <UIcon name="i-heroicons-arrow-right" class="w-4 h-4" />
+          </NuxtLink>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <NuxtLink
+            v-for="client in topClients"
+            :key="client.id"
+            :to="`/clients/${client.id}`"
+            class="bg-[#121212] ring-1 ring-gray-800 rounded-lg p-4 hover:ring-gray-700 transition-all"
+          >
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 font-semibold">
+                {{ getInitials(client.name) }}
+              </div>
+              <div>
+                <div class="font-medium">{{ client.name }}</div>
+                <div class="text-gray-500 text-sm">{{ client.jobs }} jobs</div>
+              </div>
+            </div>
+            <div class="text-sm">
+              <span class="text-gray-400">Revenue </span>
+              <span class="font-semibold">{{ formatCurrency(client.revenue) }}</span>
+            </div>
+            <div :class="['text-sm mt-1', client.growth >= 0 ? 'penta-text-accent' : 'text-red-400']">
+              Growth {{ client.growth >= 0 ? '+' : '' }}{{ client.growth }}%
+              <UIcon :name="client.growth >= 0 ? 'i-heroicons-arrow-trending-up' : 'i-heroicons-arrow-trending-down'" class="w-4 h-4 inline" />
+            </div>
+          </NuxtLink>
+        </div>
+      </div>
+    </template>
   </div>
 </template>
