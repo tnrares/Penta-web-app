@@ -50,6 +50,16 @@ app.get("/", async (c) => {
       orderBy: { name: "asc" }
     });
 
+    const memberships = await prisma.teamMember.findMany({
+      include: { team: { select: { name: true } } },
+    });
+    const teamsByUserId = new Map<string, string[]>();
+    for (const m of memberships) {
+      const list = teamsByUserId.get(m.userId) ?? [];
+      list.push(m.team.name);
+      teamsByUserId.set(m.userId, list);
+    }
+
     const jobs = await prisma.job.findMany({
       where: { workerId: { in: workers.map((w) => w.id) } },
       include: {
@@ -58,7 +68,7 @@ app.get("/", async (c) => {
       }
     });
 
-    const activeStatuses = ["IN_PROGRESS", "QUOTE_ACCEPTED"];
+    const activeStatuses = ["IN_PROGRESS", "QUOTE_ACCEPTED", "READY_FOR_REVIEW"];
     const completedStatuses = ["FINALIZED", "CLOSED_PAID"];
 
     const list = workers.map((w, idx) => {
@@ -67,6 +77,7 @@ app.get("/", async (c) => {
       const completedJobs = workerJobs.filter((j) => completedStatuses.includes(j.status));
       const lastJob = workerJobs.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0];
       const meta = getWorkerMeta(w, idx);
+      const dbTeams = teamsByUserId.get(w.id) ?? [];
       const status = activeJobs.length > 0 ? "on_job" : "available";
       return {
         id: w.id,
@@ -76,7 +87,7 @@ app.get("/", async (c) => {
         image: w.image,
         role: meta.role,
         skills: meta.skills,
-        teams: meta.teams,
+        teams: dbTeams.length > 0 ? dbTeams : meta.teams,
         rating: meta.rating,
         status,
         completedJobs: completedJobs.length,
@@ -129,7 +140,7 @@ app.get("/:id", async (c) => {
       orderBy: { updatedAt: "desc" }
     });
 
-    const activeStatuses = ["IN_PROGRESS", "QUOTE_ACCEPTED"];
+    const activeStatuses = ["IN_PROGRESS", "QUOTE_ACCEPTED", "READY_FOR_REVIEW"];
     const completedStatuses = ["FINALIZED", "CLOSED_PAID"];
     const activeJobs = jobs.filter((j) => activeStatuses.includes(j.status));
     const completedJobsList = jobs.filter((j) => completedStatuses.includes(j.status));
@@ -137,11 +148,17 @@ app.get("/:id", async (c) => {
     const workerIndex = (worker.id.charCodeAt(0) + (worker.id.length || 0)) % ROLES.length;
     const meta = getWorkerMeta(worker, workerIndex);
 
+    const teamRows = await prisma.teamMember.findMany({
+      where: { userId: worker.id },
+      include: { team: { select: { name: true } } },
+    });
+    const dbTeams = teamRows.map((r) => r.team.name);
+
     return c.json({
       ...worker,
       role: meta.role,
       skills: meta.skills,
-      teams: meta.teams,
+      teams: dbTeams.length > 0 ? dbTeams : meta.teams,
       rating: meta.rating,
       status: activeJobs.length > 0 ? "on_job" : "available",
       completedJobs: completedJobsList.length,

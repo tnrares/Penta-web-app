@@ -21,6 +21,7 @@ import { chatRouter } from "./routes/chat";
 import { clientsRouter } from "./routes/clients";
 import { dashboardRouter } from "./routes/dashboard";
 import { workersRouter } from "./routes/workers";
+import { teamsRouter } from "./routes/teams";
 import { settingsRouter } from "./routes/settings";
 
 type PrismaWithChat = typeof prisma & {
@@ -74,6 +75,7 @@ app.route("/api/chat", chatRouter);
 app.route("/api/clients", clientsRouter);
 app.route("/api/dashboard", dashboardRouter);
 app.route("/api/workers", workersRouter);
+app.route("/api/teams", teamsRouter);
 app.route("/api/settings", settingsRouter);
 
 export const rpcHandler = new RPCHandler(appRouter, {

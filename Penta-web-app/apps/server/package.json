@@ -10,6 +10,7 @@
     "start": "bun run dist/index.js"
   },
   "dependencies": {
+    "@Penta-web-app/config": "workspace:*",
     "hono": "catalog:",
     "@orpc/server": "catalog:",
     "@orpc/openapi": "catalog:",
@@ -24,7 +25,6 @@
   "devDependencies": {
     "typescript": "catalog:",
     "@types/bun": "^1.2.6",
-    "tsdown": "catalog:",
-    "@Penta-web-app/config": "workspace:*"
+    "tsdown": "catalog:"
   }
 }

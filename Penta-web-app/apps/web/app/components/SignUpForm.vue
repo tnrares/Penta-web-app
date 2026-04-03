@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import z from 'zod'
 import type { FormSubmitEvent } from '#ui/types'
+import { getPostAuthRedirect } from '~/utils/auth-redirect'
 const {$authClient} = useNuxtApp()
 
 const emit = defineEmits(['switchToSignIn'])
 
 const toast = useToast()
+const route = useRoute()
 const loading = ref(false)
 
 const schema = z.object({
@@ -34,7 +36,7 @@ async function onSubmit (event: FormSubmitEvent<Schema>) {
       {
         onSuccess: () => {
           toast.add({ title: 'Sign up successful' })
-          navigateTo('/dashboard', { replace: true })
+          navigateTo(getPostAuthRedirect(route.query.redirect), { replace: true })
         },
         onError: (error) => {
           toast.add({ title: 'Sign up failed', description: error.error.message })
@@ -50,34 +52,46 @@ async function onSubmit (event: FormSubmitEvent<Schema>) {
 </script>
 
 <template>
-  <div class="mx-auto w-full mt-10 max-w-md p-6">
-    <h1 class="mb-6 text-center text-3xl font-bold">Create Account</h1>
+  <div class="w-full py-2">
+    <h1 class="mb-2 text-center text-3xl font-bold tracking-tight text-white sm:text-4xl">
+      Create account
+    </h1>
+    <p class="mb-8 text-center text-base text-gray-400 sm:text-lg">
+      Get started with PentaWebApp
+    </p>
 
-    <UForm :schema="schema" :state="state" class="space-y-4" @submit="onSubmit">
-       <UFormField label="Name" name="name">
-        <UInput v-model="state.name" class="w-full" />
+    <UForm :schema="schema" :state="state" class="space-y-5" @submit="onSubmit">
+      <UFormField label="Name" name="name">
+        <UInput v-model="state.name" size="lg" class="w-full" />
       </UFormField>
 
       <UFormField label="Email" name="email">
-        <UInput v-model="state.email" type="email" class="w-full" />
+        <UInput v-model="state.email" type="email" size="lg" class="w-full" />
       </UFormField>
 
       <UFormField label="Password" name="password">
-        <UInput v-model="state.password" type="password" class="w-full" />
+        <UInput v-model="state.password" type="password" size="lg" class="w-full" />
       </UFormField>
 
-      <UButton type="submit" block :loading="loading">
-        Sign Up
+      <UButton
+        type="submit"
+        block
+        size="lg"
+        :loading="loading"
+        class="penta-btn-primary mt-2 min-h-12 text-base sm:min-h-[2.75rem] sm:text-lg"
+      >
+        Sign up
       </UButton>
     </UForm>
 
-    <div class="mt-4 text-center">
+    <div class="mt-6 text-center">
       <UButton
         variant="link"
+        size="lg"
         @click="$emit('switchToSignIn')"
-        class="text-primary hover:text-primary-dark"
+        class="text-base text-gray-400 hover:text-gray-200"
       >
-        Already have an account? Sign In
+        Already have an account? Sign in
       </UButton>
     </div>
   </div>

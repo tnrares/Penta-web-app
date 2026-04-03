@@ -222,7 +222,7 @@ async function sendMessage() {
     }
   } catch (e: unknown) {
     const err = e as { data?: { error?: string } }
-    alert(err?.data?.error || 'Eroare la trimitere')
+    alert(err?.data?.error || 'Failed to send')
   }
 }
 
@@ -238,6 +238,7 @@ function getJobStatusClass(s: string) {
     'QUOTE_SENT': 'text-blue-400 bg-blue-400/10 ring-blue-400/20',
     'QUOTE_ACCEPTED': 'text-indigo-400 bg-indigo-400/10 ring-indigo-400/20',
     'IN_PROGRESS': 'text-teal-400 bg-teal-400/10 ring-teal-400/20',
+    'READY_FOR_REVIEW': 'text-cyan-400 bg-cyan-400/10 ring-cyan-400/20',
     'FINALIZED': 'penta-status-ok',
     'CLOSED_PAID': 'text-emerald-400 bg-emerald-400/10 ring-emerald-400/20',
     'CANCELED': 'text-red-400 bg-red-400/10 ring-red-400/20'
@@ -248,7 +249,7 @@ function getJobStatusClass(s: string) {
 function getJobStatusLabel(s: string) {
   const map: Record<string, string> = {
     'PENDING_VISIT': 'Pending Visit', 'QUOTE_SENT': 'Quote Sent', 'QUOTE_ACCEPTED': 'Quote Accepted',
-    'IN_PROGRESS': 'In Progress', 'FINALIZED': 'Finalized', 'CLOSED_PAID': 'Closed & Paid', 'CANCELED': 'Canceled'
+    'IN_PROGRESS': 'In Progress', 'READY_FOR_REVIEW': 'Ready for review', 'FINALIZED': 'Finalized', 'CLOSED_PAID': 'Closed & Paid', 'CANCELED': 'Canceled'
   }
   return map[s] || s
 }

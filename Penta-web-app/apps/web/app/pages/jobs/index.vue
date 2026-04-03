@@ -33,6 +33,7 @@ const filters = computed(() => {
   const quoteSent = jobs.value?.filter(j => j.status === 'QUOTE_SENT').length || 0
   const quoteAccepted = jobs.value?.filter(j => j.status === 'QUOTE_ACCEPTED').length || 0
   const inProgress = jobs.value?.filter(j => j.status === 'IN_PROGRESS').length || 0
+  const readyForReview = jobs.value?.filter(j => j.status === 'READY_FOR_REVIEW').length || 0
   const finalized = jobs.value?.filter(j => j.status === 'FINALIZED').length || 0
   const closedPaid = jobs.value?.filter(j => j.status === 'CLOSED_PAID').length || 0
   const canceled = jobs.value?.filter(j => j.status === 'CANCELED').length || 0
@@ -43,6 +44,7 @@ const filters = computed(() => {
     { label: 'Quote Sent', count: quoteSent, value: 'QUOTE_SENT' },
     { label: 'Quote Accepted', count: quoteAccepted, value: 'QUOTE_ACCEPTED' },
     { label: 'In Progress', count: inProgress, value: 'IN_PROGRESS' },
+    { label: 'Ready for review', count: readyForReview, value: 'READY_FOR_REVIEW' },
     { label: 'Finalized', count: finalized, value: 'FINALIZED' },
     { label: 'Closed & Paid', count: closedPaid, value: 'CLOSED_PAID' },
     { label: 'Canceled', count: canceled, value: 'CANCELED' }
@@ -75,6 +77,7 @@ const getStatusClasses = (status: string) => {
     'QUOTE_SENT': 'text-blue-400 bg-blue-400/10 ring-blue-400/20',
     'QUOTE_ACCEPTED': 'text-indigo-400 bg-indigo-400/10 ring-indigo-400/20',
     'IN_PROGRESS': 'text-teal-400 bg-teal-400/10 ring-teal-400/20',
+    'READY_FOR_REVIEW': 'text-cyan-400 bg-cyan-400/10 ring-cyan-400/20',
     'FINALIZED': 'penta-status-ok',
     'CLOSED_PAID': 'text-emerald-400 bg-emerald-400/10 ring-emerald-400/20',
     'CANCELED': 'text-red-400 bg-red-400/10 ring-red-400/20'
@@ -88,6 +91,7 @@ const getStatusLabel = (status: string) => {
     'QUOTE_SENT': 'Quote Sent',
     'QUOTE_ACCEPTED': 'Quote Accepted',
     'IN_PROGRESS': 'In Progress',
+    'READY_FOR_REVIEW': 'Ready for review',
     'FINALIZED': 'Finalized',
     'CLOSED_PAID': 'Closed & Paid',
     'CANCELED': 'Canceled'
@@ -143,7 +147,7 @@ const getStatusLabel = (status: string) => {
       </button>
     </div>
 
-    <div v-if="pending" class="text-center py-10 text-gray-500">Se încarcă...</div>
+    <div v-if="pending" class="text-center py-10 text-gray-500">Loading…</div>
 
     <div v-else class="flex flex-col gap-4 pb-24">
       <NuxtLink v-for="job in filteredJobs" :key="job.id" :to="`/jobs/${job.id}`">
@@ -191,7 +195,7 @@ const getStatusLabel = (status: string) => {
         </div>
       </NuxtLink>
       <div v-if="filteredJobs.length === 0" class="text-center py-10 text-gray-500">
-        Nu s-au găsit lucrări conform filtrelor.
+        No jobs match the current filters.
       </div>
     </div>
 

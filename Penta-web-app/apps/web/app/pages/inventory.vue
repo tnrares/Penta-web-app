@@ -1,4 +1,8 @@
 <script setup lang="ts">
+definePageMeta({
+  middleware: ['no-client'],
+})
+
 const config = useRuntimeConfig()
 const serverUrl = config.public.serverURL || 'http://localhost:3000'
 
@@ -86,7 +90,7 @@ watch(selectedId, (id) => {
 
 const newItem = ref({
   name: '',
-  unit: 'Buc',
+  unit: 'pcs',
   unitCost: 0,
   currentStock: 0,
   minStockAlert: 5
@@ -102,12 +106,12 @@ async function addItem() {
       body: newItem.value,
       credentials: 'include'
     })
-    newItem.value = { name: '', unit: 'Buc', unitCost: 0, currentStock: 0, minStockAlert: 5 }
+    newItem.value = { name: '', unit: 'pcs', unitCost: 0, currentStock: 0, minStockAlert: 5 }
     addModalOpen.value = false
     await refresh()
   } catch (e: unknown) {
     const err = e as { data?: { error?: string } }
-    alert(err?.data?.error ?? 'Eroare la adăugare')
+    alert(err?.data?.error ?? 'Failed to add item')
   } finally {
     addPending.value = false
   }
@@ -134,12 +138,12 @@ async function submitStockChange() {
     if (detailItem.value) await selectItem(selectedId.value)
   } catch (e: unknown) {
     const err = e as { data?: { error?: string } }
-    alert(err?.data?.error ?? 'Eroare la actualizare stoc')
+    alert(err?.data?.error ?? 'Failed to update stock')
   }
 }
 
 async function deleteItem(id: number) {
-  if (!confirm('Sigur ștergi acest articol?')) return
+  if (!confirm('Delete this item?')) return
   try {
     await $fetch(`${serverUrl}/api/inventory/${id}`, { method: 'DELETE', credentials: 'include' })
     if (selectedId.value === id) selectedId.value = null
@@ -147,7 +151,7 @@ async function deleteItem(id: number) {
     await refresh()
   } catch (e: unknown) {
     const err = e as { data?: { error?: string } }
-    alert(err?.data?.error ?? 'Nu s-a putut șterge.')
+    alert(err?.data?.error ?? 'Could not delete item.')
   }
 }
 
@@ -171,7 +175,7 @@ function formatDate(d: string) {
       />
     </header>
 
-    <!-- Summary cards cu icoane ca în referință -->
+    <!-- Summary cards -->
     <div class="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-6">
       <div class="bg-[#18181b] rounded-xl p-4 ring-1 ring-gray-800 flex items-start gap-3">
         <div class="w-10 h-10 rounded-lg bg-gray-700/80 flex items-center justify-center shrink-0">
@@ -220,7 +224,7 @@ function formatDate(d: string) {
       </div>
     </div>
 
-    <!-- Search + filter row ca în referință -->
+    <!-- Search + filter row -->
     <div class="mb-4 flex flex-wrap items-center gap-3">
       <UInput
         v-model="searchQuery"
@@ -291,7 +295,7 @@ function formatDate(d: string) {
             </div>
           </div>
           <div class="flex-1 overflow-y-auto p-4 space-y-5">
-            <!-- Progress bar pentru stoc (ca în referință) -->
+            <!-- Stock progress bar -->
             <div>
               <div class="flex justify-between text-sm mb-1">
                 <span class="text-gray-500">Current Stock</span>
@@ -344,7 +348,7 @@ function formatDate(d: string) {
       </div>
     </div>
 
-    <!-- Add Item modal - folosind #body și #footer ca în jobs -->
+    <!-- Add item modal -->
     <UModal v-model:open="addModalOpen" title="Add Item">
       <template #body>
         <form class="space-y-4" @submit.prevent="addItem">
@@ -366,7 +370,7 @@ function formatDate(d: string) {
             <div>
               <label class="block text-sm text-gray-400 mb-1">Unit</label>
               <select v-model="newItem.unit" class="w-full rounded-lg border border-gray-700 bg-[#18181b] text-white px-3 py-2">
-                <option>Buc</option>
+                <option>pcs</option>
                 <option>kg</option>
                 <option>L</option>
                 <option>m</option>

@@ -18,6 +18,25 @@ const DashboardChartsPanel = defineAsyncComponent({
 const config = useRuntimeConfig()
 const serverUrl = config.public.serverURL || 'http://localhost:3000'
 
+const { $authClient } = useNuxtApp()
+const session = $authClient.useSession()
+const userRole = computed(
+  () => (session.value?.data?.user as { role?: string } | undefined)?.role ?? ''
+)
+const isManager = computed(() => userRole.value === 'MANAGER')
+const isClient = computed(() => userRole.value === 'CLIENT')
+const isWorker = computed(() => userRole.value === 'WORKER')
+
+const dashboardSubtitle = computed(() => {
+  if (isManager.value) return "Here's what's happening with your business."
+  if (isClient.value) {
+    return "Here is an overview of your projects, payments, and updates."
+  }
+  return "Here's an overview of your projects and activity."
+})
+
+const dashboardHeading = computed(() => (isClient.value ? "Your dashboard" : "Dashboard"))
+
 interface DashboardData {
   stats?: {
     monthlyRevenue: number
@@ -41,6 +60,9 @@ interface DashboardData {
 const { data: dashboard, pending } = await useFetch<DashboardData>(`${serverUrl}/api/dashboard`, {
   credentials: 'include'
 })
+
+/** Top priority items for the manager (alerts are pre-sorted by severity on the API). */
+const priorityAlerts = computed(() => (dashboard.value?.alerts ?? []).slice(0, 4))
 
 const today = computed(() => {
   const d = new Date()
@@ -119,6 +141,42 @@ function getAlertBg(type: string) {
 function getInitials(name: string) {
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 }
+
+/** Manager: no jobs, no clients, no recent activity (onboarding). */
+const showManagerWorkspaceEmpty = computed(() => {
+  if (pending.value || !isManager.value) return false
+  const s = stats.value
+  return (
+    (s?.activeJobs ?? 0) === 0 &&
+    (s?.totalClients ?? 0) === 0 &&
+    recentJobs.value.length === 0
+  )
+})
+
+/** Manager: show hero empty only when there are no priority alerts (otherwise show full dashboard + alerts). */
+const showManagerEmptyBanner = computed(
+  () => showManagerWorkspaceEmpty.value && priorityAlerts.value.length === 0
+)
+
+/** Client: no active pipeline and no jobs in list — friendly empty state (totalClients from API is always 1 for clients, so we cannot reuse manager logic). */
+const showClientProjectsEmpty = computed(() => {
+  if (pending.value || !isClient.value) return false
+  return (stats.value?.activeJobs ?? 0) === 0 && recentJobs.value.length === 0
+})
+
+/** Worker: no jobs in dashboard scope yet. */
+const showWorkerDashboardEmpty = computed(() => {
+  if (pending.value || !isWorker.value) return false
+  return (stats.value?.activeJobs ?? 0) === 0 && recentJobs.value.length === 0
+})
+
+/** Hide charts / summary / recent when a role-specific empty hero is shown. */
+const hideMainDashboard = computed(
+  () =>
+    showManagerEmptyBanner.value ||
+    showClientProjectsEmpty.value ||
+    showWorkerDashboardEmpty.value
+)
 </script>
 
 <template>
@@ -126,8 +184,8 @@ function getInitials(name: string) {
     <!-- Header -->
     <div class="flex justify-between items-start mb-8">
       <div>
-        <h1 class="text-3xl font-bold mb-1">Dashboard</h1>
-        <p class="text-gray-400">Welcome back! Here's what's happening with your business.</p>
+        <h1 class="text-3xl font-bold mb-1">{{ dashboardHeading }}</h1>
+        <p class="text-gray-400">Welcome back! {{ dashboardSubtitle }}</p>
       </div>
       <div class="text-right text-sm">
         <div class="text-gray-400">Today</div>
@@ -140,8 +198,137 @@ function getInitials(name: string) {
     </div>
 
     <template v-else>
-      <!-- Summary Cards -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <!-- Empty states: manager onboarding vs client vs worker -->
+      <div
+        v-if="showManagerEmptyBanner"
+        class="mb-8 rounded-xl border border-dashed border-gray-700 bg-[#121212]/80 p-8 text-center ring-1 ring-gray-800/80"
+      >
+        <UIcon name="i-heroicons-rocket-launch" class="mx-auto mb-4 h-12 w-12 text-gray-500" />
+        <h2 class="mb-2 text-xl font-semibold text-white">Get your workspace moving</h2>
+        <p class="mx-auto mb-6 max-w-lg text-gray-400">
+          Create your first job and add clients to see activity, charts, and alerts here. You can also open
+          Workers or Inventory from the sidebar when you are ready.
+        </p>
+        <div class="flex flex-wrap justify-center gap-3">
+          <UButton to="/jobs/new" class="penta-btn-primary">
+            <UIcon name="i-heroicons-plus" class="mr-2 h-5 w-5" />
+            Create job
+          </UButton>
+          <UButton to="/clients" variant="outline" class="ring-1 ring-gray-600 text-gray-200">
+            View clients
+          </UButton>
+        </div>
+      </div>
+
+      <div
+        v-else-if="showClientProjectsEmpty"
+        class="mb-8 rounded-xl border border-dashed border-gray-700 bg-[#121212]/80 p-8 text-center ring-1 ring-gray-800/80"
+      >
+        <UIcon name="i-heroicons-building-office-2" class="mx-auto mb-4 h-12 w-12 text-gray-500" />
+        <h2 class="mb-2 text-xl font-semibold text-white">No projects yet</h2>
+        <p class="mx-auto mb-6 max-w-lg text-gray-400">
+          When your contractor adds a project to your account, it will show up here with status, timeline, and documents.
+          You do not need to create anything — your team will invite work as it is ready.
+        </p>
+        <div class="flex flex-wrap justify-center gap-3">
+          <UButton to="/jobs" variant="outline" class="ring-1 ring-gray-600 text-gray-200">
+            <UIcon name="i-heroicons-rectangle-stack" class="mr-2 h-5 w-5" />
+            View jobs
+          </UButton>
+        </div>
+      </div>
+
+      <div
+        v-else-if="showWorkerDashboardEmpty"
+        class="mb-8 rounded-xl border border-dashed border-gray-700 bg-[#121212]/80 p-8 text-center ring-1 ring-gray-800/80"
+      >
+        <UIcon name="i-heroicons-wrench-screwdriver" class="mx-auto mb-4 h-12 w-12 text-gray-500" />
+        <h2 class="mb-2 text-xl font-semibold text-white">No assigned jobs</h2>
+        <p class="mx-auto mb-6 max-w-lg text-gray-400">
+          Jobs you are assigned to will appear on this dashboard. Open the jobs list to see everything you can access.
+        </p>
+        <div class="flex flex-wrap justify-center gap-3">
+          <UButton to="/jobs" class="penta-btn-primary">
+            <UIcon name="i-heroicons-rectangle-stack" class="mr-2 h-5 w-5" />
+            View jobs
+          </UButton>
+        </div>
+      </div>
+
+      <template v-if="!hideMainDashboard">
+      <!-- Manager: priority alerts (plan B1 — needs attention first) -->
+      <div
+        v-if="isManager && priorityAlerts.length"
+        class="mb-8 rounded-xl border border-amber-500/25 bg-amber-500/5 p-5 ring-1 ring-amber-500/20"
+      >
+        <div class="mb-3 flex items-center justify-between gap-2">
+          <h2 class="text-lg font-semibold text-white">Needs attention</h2>
+          <NuxtLink to="/jobs" class="text-sm penta-text-accent hover:underline">View jobs</NuxtLink>
+        </div>
+        <ul class="space-y-2">
+          <li
+            v-for="(a, idx) in priorityAlerts"
+            :key="idx"
+            class="flex flex-wrap items-start justify-between gap-2 rounded-lg bg-[#121212]/90 px-3 py-2.5 ring-1 ring-gray-800/80"
+          >
+            <div class="min-w-0 flex-1">
+              <p class="font-medium text-white">{{ a.title }}</p>
+              <p class="text-sm text-gray-400">{{ a.message }}</p>
+            </div>
+            <div class="flex shrink-0 items-center gap-2">
+              <span
+                v-if="a.timeAgo"
+                class="text-xs text-gray-500"
+              >{{ a.timeAgo }}</span>
+              <span
+                class="rounded px-2 py-0.5 text-xs font-medium capitalize"
+                :class="{
+                  'bg-red-500/20 text-red-300': a.severity === 'critical',
+                  'bg-orange-500/20 text-orange-300': a.severity === 'high',
+                  'bg-amber-500/20 text-amber-200': a.severity === 'medium',
+                  'bg-gray-700 text-gray-300': a.severity === 'low',
+                }"
+              >{{ a.severity }}</span>
+            </div>
+          </li>
+        </ul>
+        <div class="mt-3 flex flex-wrap gap-3 text-sm">
+          <NuxtLink to="/inventory" class="text-gray-400 hover:text-white hover:underline">Inventory</NuxtLink>
+          <NuxtLink to="/finance" class="text-gray-400 hover:text-white hover:underline">Finance</NuxtLink>
+        </div>
+      </div>
+
+      <!-- Summary Cards: manager (4) vs client (2) -->
+      <div
+        v-if="isClient"
+        class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8"
+      >
+        <div class="bg-[#18181b] ring-1 ring-gray-800 rounded-xl p-5">
+          <div class="flex items-center gap-3 mb-2">
+            <div class="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
+              <UIcon name="i-heroicons-briefcase" class="w-5 h-5 text-blue-400" />
+            </div>
+            <span class="text-gray-400 text-sm">Active projects</span>
+          </div>
+          <div class="text-2xl font-bold">{{ stats?.activeJobs ?? 0 }}</div>
+          <p class="text-gray-500 text-xs mt-2">Jobs in progress or scheduled with your contractor.</p>
+        </div>
+        <div class="bg-[#18181b] ring-1 ring-gray-800 rounded-xl p-5">
+          <div class="flex items-center gap-3 mb-2">
+            <div class="w-10 h-10 rounded-full penta-avatar-subtle flex items-center justify-center">
+              <UIcon name="i-heroicons-currency-dollar" class="w-5 h-5 penta-text-accent" />
+            </div>
+            <span class="text-gray-400 text-sm">Paid this month</span>
+          </div>
+          <div class="text-2xl font-bold">{{ formatCurrency(stats?.monthlyRevenue ?? 0) }}</div>
+          <p class="text-gray-500 text-xs mt-2">Payments recorded on your invoices this month.</p>
+        </div>
+      </div>
+
+      <div
+        v-else
+        class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8"
+      >
         <div class="bg-[#18181b] ring-1 ring-gray-800 rounded-xl p-5">
           <div class="flex items-center gap-3 mb-2">
             <div class="w-10 h-10 rounded-full penta-avatar-subtle flex items-center justify-center">
@@ -206,6 +393,7 @@ function getInitials(name: string) {
       </div>
 
       <DashboardChartsPanel
+        v-if="!isClient"
         :revenue-chart-data="revenueChartData"
         :chart-options="chartOptions"
         :donut-chart-data="donutChartData"
@@ -213,12 +401,28 @@ function getInitials(name: string) {
         :has-revenue-data="revenueExpenses.length > 0"
         :has-job-status="jobStatus.length > 0"
       />
+      <div
+        v-else-if="jobStatus.length > 0"
+        class="mb-8 rounded-xl bg-[#18181b] p-6 ring-1 ring-gray-800"
+      >
+        <h3 class="text-lg font-semibold mb-4">Your project status</h3>
+        <div class="flex flex-wrap gap-3">
+          <span
+            v-for="row in jobStatus"
+            :key="row.label"
+            class="inline-flex items-center gap-2 rounded-lg bg-[#121212] px-3 py-2 text-sm ring-1 ring-gray-800"
+          >
+            <span class="h-2 w-2 rounded-full" :style="{ backgroundColor: row.color }" />
+            {{ row.label }}: {{ row.count }}
+          </span>
+        </div>
+      </div>
 
       <!-- Recent Jobs + Alerts -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <div class="bg-[#18181b] ring-1 ring-gray-800 rounded-xl p-6">
           <div class="flex justify-between items-center mb-4">
-            <h3 class="text-lg font-semibold">Recent Jobs</h3>
+            <h3 class="text-lg font-semibold">{{ isClient ? 'Your recent projects' : 'Recent Jobs' }}</h3>
             <NuxtLink to="/jobs" class="text-blue-400 text-sm hover:text-blue-300 flex items-center gap-1">
               View All <UIcon name="i-heroicons-arrow-right" class="w-4 h-4" />
             </NuxtLink>
@@ -258,7 +462,7 @@ function getInitials(name: string) {
 
         <div class="bg-[#18181b] ring-1 ring-gray-800 rounded-xl p-6">
           <div class="flex justify-between items-center mb-4">
-            <h3 class="text-lg font-semibold">Alerts</h3>
+            <h3 class="text-lg font-semibold">{{ isClient ? 'Your notices' : 'Alerts' }}</h3>
             <span v-if="alerts.length" class="px-2 py-0.5 rounded bg-red-500/20 text-red-400 text-sm">{{ alerts.length }} new</span>
           </div>
           <div class="space-y-3">
@@ -337,6 +541,7 @@ function getInitials(name: string) {
           </NuxtLink>
         </div>
       </div>
+      </template>
     </template>
   </div>
 </template>

@@ -18,8 +18,6 @@ const FinanceChartsPanel = defineAsyncComponent({
   }),
 })
 
-definePageMeta({ middleware: 'auth' })
-
 interface Invoice {
   id: string
   invoiceNumber: string
@@ -229,7 +227,7 @@ const topCategory = computed(() => {
 })
 
 function formatMoney(n: number) {
-  return new Intl.NumberFormat('ro-RO', { maximumFractionDigits: 0 }).format(n) + ' RON'
+  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(n) + ' RON'
 }
 
 function getStatusClass(status: string) {
@@ -547,7 +545,7 @@ function stubAction(label: string) {
                 </div>
                 <div class="flex flex-wrap items-center gap-3">
                   <span class="text-red-400 font-medium">{{ formatMoney(inv.amount) }}</span>
-                  <span class="text-gray-500 text-sm">Due {{ new Date(inv.dueDate).toLocaleDateString('ro-RO') }}</span>
+                  <span class="text-gray-500 text-sm">Due {{ new Date(inv.dueDate).toLocaleDateString('en-US') }}</span>
                   <UButton size="sm" class="penta-btn-primary" @click="stubAction('Send reminder')">
                     <UIcon name="i-heroicons-paper-airplane" class="w-4 h-4 mr-1" />
                     Remind
@@ -614,8 +612,8 @@ function stubAction(label: string) {
                 <td class="px-4 py-3 text-white">{{ invoice.client }}</td>
                 <td class="px-4 py-3 text-gray-400">{{ invoice.project }}</td>
                 <td class="px-4 py-3 text-white">{{ formatMoney(invoice.amount) }}</td>
-                <td class="px-4 py-3 text-gray-500 text-sm">{{ new Date(invoice.issueDate).toLocaleDateString('ro-RO') }}</td>
-                <td class="px-4 py-3 text-gray-500 text-sm">{{ new Date(invoice.dueDate).toLocaleDateString('ro-RO') }}</td>
+                <td class="px-4 py-3 text-gray-500 text-sm">{{ new Date(invoice.issueDate).toLocaleDateString('en-US') }}</td>
+                <td class="px-4 py-3 text-gray-500 text-sm">{{ new Date(invoice.dueDate).toLocaleDateString('en-US') }}</td>
                 <td class="px-4 py-3">
                   <span :class="['inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ring-2 ring-inset', getStatusClass(invoice.status)]">
                     <UIcon
@@ -714,7 +712,7 @@ function stubAction(label: string) {
                 <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
                   <span class="inline-flex items-center gap-1">
                     <UIcon name="i-heroicons-calendar" class="w-4 h-4" />
-                    {{ new Date(expense.date).toLocaleDateString('ro-RO') }}
+                    {{ new Date(expense.date).toLocaleDateString('en-US') }}
                   </span>
                   <span class="inline-flex items-center gap-1">
                     <UIcon name="i-heroicons-credit-card" class="w-4 h-4" />
@@ -763,11 +761,11 @@ function stubAction(label: string) {
             <div class="sm:text-right space-y-3">
               <div>
                 <p class="text-gray-500 text-sm mb-1">Issue date</p>
-                <p class="text-white">{{ new Date(selectedInvoice.issueDate).toLocaleDateString('ro-RO') }}</p>
+                <p class="text-white">{{ new Date(selectedInvoice.issueDate).toLocaleDateString('en-US') }}</p>
               </div>
               <div>
                 <p class="text-gray-500 text-sm mb-1">Due date</p>
-                <p class="text-white">{{ new Date(selectedInvoice.dueDate).toLocaleDateString('ro-RO') }}</p>
+                <p class="text-white">{{ new Date(selectedInvoice.dueDate).toLocaleDateString('en-US') }}</p>
               </div>
             </div>
           </div>

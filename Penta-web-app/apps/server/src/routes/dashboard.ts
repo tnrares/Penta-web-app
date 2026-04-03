@@ -6,7 +6,7 @@ const app = new Hono();
 
 // Map DB job status to dashboard groupings
 const completedStatuses = ["FINALIZED", "CLOSED_PAID"];
-const inProgressStatuses = ["IN_PROGRESS"];
+const inProgressStatuses = ["IN_PROGRESS", "READY_FOR_REVIEW"];
 const scheduledStatuses = ["QUOTE_ACCEPTED"];
 const pendingQuoteStatuses = ["PENDING_VISIT", "QUOTE_SENT"];
 
@@ -57,18 +57,18 @@ app.get("/", async (c) => {
     const revenueChange = lastMonthRevenue > 0 ? ((monthlyRevenue - lastMonthRevenue) / lastMonthRevenue) * 100 : 0;
     const revenueDiff = monthlyRevenue - lastMonthRevenue;
 
-    // --- Active Jobs (IN_PROGRESS + QUOTE_ACCEPTED with future start) ---
+    // --- Active Jobs (work active + scheduled + ready for review) ---
     const activeJobs = await prisma.job.count({
       where: {
         ...jobFilter,
-        status: { in: ["IN_PROGRESS", "QUOTE_ACCEPTED"] },
+        status: { in: ["IN_PROGRESS", "READY_FOR_REVIEW", "QUOTE_ACCEPTED"] },
         ...(isManager ? {} : {})
       }
     });
     const prevActiveJobs = await prisma.job.count({
       where: {
         ...jobFilter,
-        status: { in: ["IN_PROGRESS", "QUOTE_ACCEPTED"] },
+        status: { in: ["IN_PROGRESS", "READY_FOR_REVIEW", "QUOTE_ACCEPTED"] },
         updatedAt: { lt: startOfMonth }
       }
     });
@@ -88,27 +88,33 @@ app.get("/", async (c) => {
       ? await prisma.user.count({ where: { role: "CLIENT", createdAt: { gte: startOfMonth } } })
       : 0;
 
-    // --- Pending Issues (overdue invoices + low/out of stock) ---
+    // --- Pending Issues (overdue invoices; inventory only for managers) ---
     const overdueInvoices = await prisma.invoice.count({
       where: {
         status: "OVERDUE",
         ...(isManager ? {} : { job: { clientId: session.user.id } })
       }
     });
-    const lowStock = await prisma.inventoryItem.count({
-      where: { currentStock: { gt: 0 }, minStockAlert: { gt: 0 } }
-    });
-    const outOfStock = await prisma.inventoryItem.count({
-      where: { currentStock: 0 }
-    });
-    const allInventory = await prisma.inventoryItem.findMany({
-      select: { id: true, name: true, unit: true, currentStock: true, minStockAlert: true, updatedAt: true }
-    });
-    const lowStockItems = allInventory.filter(
-      (i) => i.currentStock === 0 || i.currentStock <= i.minStockAlert
-    );
-    const criticalIssues = overdueInvoices + outOfStock;
-    const pendingIssues = overdueInvoices + lowStockItems.length;
+    type LowStockRow = {
+      id: number;
+      name: string;
+      unit: string | null;
+      currentStock: number;
+      minStockAlert: number;
+      updatedAt: Date;
+    };
+    let lowStockItems: LowStockRow[] = [];
+    if (isManager) {
+      const allInventory = await prisma.inventoryItem.findMany({
+        select: { id: true, name: true, unit: true, currentStock: true, minStockAlert: true, updatedAt: true }
+      });
+      lowStockItems = allInventory.filter(
+        (i) => i.currentStock === 0 || i.currentStock <= i.minStockAlert
+      );
+    }
+    const outOfStockCount = isManager ? lowStockItems.filter((i) => i.currentStock === 0).length : 0;
+    const criticalIssues = overdueInvoices + outOfStockCount;
+    const pendingIssues = overdueInvoices + (isManager ? lowStockItems.length : 0);
 
     // --- Revenue & Expenses (last 7 months) ---
     const months: { label: string; revenue: number; expenses: number }[] = [];
@@ -208,7 +214,10 @@ app.get("/", async (c) => {
     }
 
     const overdueInvs = await prisma.invoice.findMany({
-      where: { status: "OVERDUE" },
+      where: {
+        status: "OVERDUE",
+        ...(isManager ? {} : { job: { clientId: session.user.id } })
+      },
       include: { job: { include: { client: true } } }
     });
     for (const inv of overdueInvs) {
@@ -224,7 +233,7 @@ app.get("/", async (c) => {
     const upcomingJobs = await prisma.job.findMany({
       where: {
         ...jobFilter,
-        status: { in: ["IN_PROGRESS", "QUOTE_ACCEPTED"] },
+        status: { in: ["IN_PROGRESS", "QUOTE_ACCEPTED", "READY_FOR_REVIEW"] },
         estimatedEndDate: { gte: now, lte: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000) }
       },
       include: { client: true }
@@ -305,7 +314,14 @@ app.get("/", async (c) => {
         value: j.invoice?.totalAmount ?? j.quote?.totalAmount ?? 0,
         status: j.status,
         dashboardStatus: getDashboardStatus(j.status),
-        progress: j.status === "IN_PROGRESS" ? 65 : j.status === "FINALIZED" || j.status === "CLOSED_PAID" ? 100 : 0,
+        progress:
+          j.status === "FINALIZED" || j.status === "CLOSED_PAID"
+            ? 100
+            : j.status === "READY_FOR_REVIEW"
+              ? 75
+              : j.status === "IN_PROGRESS"
+                ? 65
+                : 0,
         client: j.client
       })),
       alerts: topAlerts,
@@ -313,7 +329,7 @@ app.get("/", async (c) => {
     });
   } catch (e: any) {
     console.error("Dashboard error:", e);
-    return c.json({ error: "Eroare la preluarea dashboard-ului: " + (e?.message ?? "Eroare") }, 500);
+    return c.json({ error: "Failed to load dashboard: " + (e?.message ?? "Unknown error") }, 500);
   }
 });
 

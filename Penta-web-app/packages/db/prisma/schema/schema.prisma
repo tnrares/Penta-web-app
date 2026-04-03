@@ -21,6 +21,7 @@ enum JobStatus {
   QUOTE_SENT
   QUOTE_ACCEPTED
   IN_PROGRESS
+  READY_FOR_REVIEW
   FINALIZED
   CLOSED_PAID
   CANCELED
@@ -72,7 +73,35 @@ model User {
   conversationsAsManager Conversation[] @relation("ConversationManager")
   chatMessagesSent       ChatMessage[]
 
+  teamsLed        Team[]       @relation("TeamLead")
+  teamMemberships TeamMember[]
+
   @@map("user")
+}
+
+model Team {
+  id        String   @id @default(cuid()) @map("_id")
+  name      String   @map("name")
+  color     String   @default("blue") @map("color")
+  leadId    String?  @map("lead_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  lead    User?        @relation("TeamLead", fields: [leadId], references: [id], onDelete: SetNull)
+  members TeamMember[]
+
+  @@map("team")
+}
+
+model TeamMember {
+  teamId String @map("team_id")
+  userId String @map("user_id")
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([teamId, userId])
+  @@map("team_member")
 }
 
 model Session {

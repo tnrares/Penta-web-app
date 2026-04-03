@@ -1,6 +1,11 @@
 import { Hono } from "hono";
 import prisma from "@Penta-web-app/db";
 import { auth } from "@Penta-web-app/auth";
+import {
+  isTransitionAllowed,
+  isWorkerTransitionAllowed,
+  type JobStatus,
+} from "@Penta-web-app/config/job-status";
 
 const app = new Hono();
 
@@ -20,13 +25,34 @@ app.get("/", async (c) => {
     if (isManager) {
       jobs = await prisma.job.findMany({
         orderBy: { createdAt: 'desc' },
-        include: { client: true }
+        include: {
+          client: true,
+          manager: { select: { id: true, name: true, email: true } },
+        },
       });
     } else {
       jobs = await prisma.job.findMany({
         where: { clientId: session.user.id },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: "desc" },
+        include: {
+          manager: { select: { id: true, name: true, email: true } },
+          worker: { select: { id: true, name: true, email: true } },
+        },
       });
+
+      // Legacy jobs may lack managerId until a quote is sent; if the client already has a chat with a manager, show them as PM.
+      const conv = await prisma.conversation.findFirst({
+        where: { clientId: session.user.id },
+        include: { manager: { select: { id: true, name: true, email: true } } },
+        orderBy: { createdAt: "desc" },
+      });
+      const fallbackManager = conv?.manager;
+      if (fallbackManager) {
+        jobs = jobs.map((j) => ({
+          ...j,
+          manager: j.manager ?? fallbackManager,
+        }));
+      }
     }
 
     return c.json(jobs);
@@ -458,7 +484,8 @@ app.get("/:id", async (c) => {
 
     if (!job) return c.json({ error: "Lucrarea nu există" }, 404);
 
-    if (!isManager && job.clientId !== session.user.id) {
+    const isAssignedWorker = user.role === "WORKER" && job.workerId === session.user.id;
+    if (!isManager && job.clientId !== session.user.id && !isAssignedWorker) {
       return c.json({ error: "Nu ai permisiunea de a accesa această lucrare." }, 403);
     }
 
@@ -482,10 +509,21 @@ app.get("/:id", async (c) => {
       photos = [];
     }
 
-    return c.json({
-      ...job,
-      photos
-    });
+    let responseBody: Record<string, unknown> = { ...job, photos };
+
+    // When job.managerId is not set yet, show the PM from the client conversation (same for all roles).
+    if (!job.manager && job.clientId) {
+      const conv = await prisma.conversation.findFirst({
+        where: { clientId: job.clientId },
+        include: { manager: { select: { id: true, name: true, email: true } } },
+        orderBy: { createdAt: "desc" },
+      });
+      if (conv?.manager) {
+        responseBody = { ...responseBody, manager: conv.manager };
+      }
+    }
+
+    return c.json(responseBody);
   } catch (e: any) {
     console.error("Eroare la preluarea job-ului:", e);
     console.error("Message:", e?.message);
@@ -509,12 +547,30 @@ app.patch("/:id/assign", async (c) => {
   }
 
   try {
+    const job = await prisma.job.findUnique({ where: { id } });
+    if (!job) return c.json({ error: "Lucrarea nu există" }, 404);
+
     const updatedJob = await prisma.job.update({
       where: { id },
       data: {
         managerId: session.user.id,
-        status: "PENDING_VISIT"
-      }
+      },
+      include: {
+        client: { select: { id: true, name: true, email: true, phone: true, image: true } },
+        manager: { select: { id: true, name: true, email: true } },
+        worker: { select: { id: true, name: true, email: true } },
+        quote: { include: { items: true } },
+        invoice: {
+          select: {
+            id: true,
+            totalAmount: true,
+            amountPaid: true,
+            status: true,
+            issueDate: true,
+            dueDate: true,
+          },
+        },
+      },
     });
     return c.json(updatedJob);
   } catch (e) {
@@ -585,13 +641,75 @@ app.patch("/:id", async (c) => {
 
     const isManager = user.role === "MANAGER";
     const isJobOwner = job.clientId === session.user.id;
+    const isAssignedWorker = user.role === "WORKER" && job.workerId === session.user.id;
 
-    // Doar MANAGER sau owner-ul job-ului pot edita
-    if (!isManager && !isJobOwner) {
+    if (!isManager && !isJobOwner && !isAssignedWorker) {
       return c.json({ error: "Nu ai permisiunea de a edita această lucrare." }, 403);
     }
 
     const body = await c.req.json();
+
+    // Assigned worker: only IN_PROGRESS → READY_FOR_REVIEW
+    if (isAssignedWorker) {
+      const forbidden = ["title", "address", "estimatedStartDate", "estimatedEndDate", "actualStartDate", "actualEndDate"].some(
+        (k) => body[k as keyof typeof body] !== undefined
+      );
+      if (forbidden) {
+        return c.json({ error: "Workers can only mark the job as ready for review (no other fields)." }, 400);
+      }
+      if (body.status !== "READY_FOR_REVIEW") {
+        return c.json({ error: "Workers can only mark the job as ready for review." }, 400);
+      }
+      if (!isWorkerTransitionAllowed(job.status as JobStatus, "READY_FOR_REVIEW")) {
+        return c.json({ error: "The job must be in progress before it can be marked ready for review." }, 400);
+      }
+      const updatedJob = await prisma.job.update({
+        where: { id },
+        data: { status: "READY_FOR_REVIEW" },
+        include: {
+          client: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              image: true,
+            },
+          },
+          manager: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          worker: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          quote: {
+            include: {
+              items: true,
+            },
+          },
+          invoice: {
+            select: {
+              id: true,
+              totalAmount: true,
+              amountPaid: true,
+              status: true,
+              issueDate: true,
+              dueDate: true,
+            },
+          },
+        },
+      });
+      return c.json(updatedJob);
+    }
+
     const updateData: any = {};
 
     // Toți pot actualiza titlul și adresa
@@ -601,9 +719,16 @@ app.patch("/:id", async (c) => {
     // Doar MANAGER-ii pot actualiza statusul și datele estimate
     if (isManager) {
       if (body.status !== undefined) {
-        // Validare status
-        const validStatuses = ['PENDING_VISIT', 'QUOTE_SENT', 'QUOTE_ACCEPTED', 'IN_PROGRESS', 'FINALIZED', 'CLOSED_PAID', 'CANCELED'];
+        const validStatuses = ['PENDING_VISIT', 'QUOTE_SENT', 'QUOTE_ACCEPTED', 'IN_PROGRESS', 'READY_FOR_REVIEW', 'FINALIZED', 'CLOSED_PAID', 'CANCELED'];
         if (validStatuses.includes(body.status)) {
+          const from = job.status as JobStatus;
+          const to = body.status as JobStatus;
+          if (!isTransitionAllowed(from, to)) {
+            return c.json(
+              { error: `Invalid status transition (${from} → ${to}). Use the job page workflow or allowed next steps in Edit.` },
+              400
+            );
+          }
           updateData.status = body.status;
         }
       }
@@ -619,6 +744,11 @@ app.patch("/:id", async (c) => {
       if (body.actualEndDate !== undefined) {
         updateData.actualEndDate = body.actualEndDate ? new Date(body.actualEndDate) : null;
       }
+    }
+
+    // First manager touch claims the job as project manager (for client Team / job UI).
+    if (isManager && job.managerId == null) {
+      updateData.managerId = session.user.id;
     }
 
     if (Object.keys(updateData).length === 0) {
@@ -691,6 +821,11 @@ app.patch("/:id/schedule-visit", async (c) => {
   }
 
   try {
+    const job = await prisma.job.findUnique({ where: { id } });
+    if (!job) {
+      return c.json({ error: "Lucrarea nu există." }, 404);
+    }
+
     const body = await c.req.json();
     const { estimatedStartDate, status } = body;
 
@@ -703,6 +838,14 @@ app.patch("/:id/schedule-visit", async (c) => {
     };
 
     if (status) {
+      const from = job.status as JobStatus;
+      const to = status as JobStatus;
+      if (!isTransitionAllowed(from, to)) {
+        return c.json(
+          { error: `Invalid status transition (${from} → ${to}).` },
+          400
+        );
+      }
       updateData.status = status;
     }
 

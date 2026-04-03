@@ -8,14 +8,14 @@ const session = $authClient.useSession()
 
 const avatarLoadFailed = ref(false)
 watch(
-  () => session?.data?.value?.user?.image,
+  () => session?.value?.data?.user?.image,
   () => {
     avatarLoadFailed.value = false
   }
 )
 const avatarSrc = computed(() => {
   if (avatarLoadFailed.value) return undefined
-  const img = session?.data?.value?.user?.image
+  const img = session?.value?.data?.user?.image
   return img || undefined
 })
 
@@ -23,19 +23,28 @@ function onAvatarError() {
   avatarLoadFailed.value = true
 }
 
-const userRole = computed(() => (session?.data?.value?.user as { role?: string })?.role)
+const userRole = computed(() => (session?.value?.data?.user as { role?: string })?.role)
 
 const links = computed(() => {
-  const base = [
+  if (userRole.value === "CLIENT") {
+    return [
+      { to: "/dashboard", label: "Dashboard", icon: "i-heroicons-chart-bar-square" },
+      { to: "/jobs", label: "Jobs", icon: "i-heroicons-briefcase" },
+      { to: "/team", label: "Your team", icon: "i-heroicons-user-group" },
+      { to: "/clients", label: "Messages", icon: "i-heroicons-chat-bubble-left-right" },
+      { to: "/finance", label: "Finances", icon: "i-heroicons-banknotes" },
+      { to: "/settings", label: "Settings", icon: "i-heroicons-cog-6-tooth" },
+    ]
+  }
+  return [
     { to: "/dashboard", label: "Dashboard", icon: "i-heroicons-chart-bar-square" },
     { to: "/jobs", label: "Jobs", icon: "i-heroicons-briefcase" },
-    { to: "/clients", label: userRole.value === "CLIENT" ? "Chat" : "Clients", icon: "i-heroicons-chat-bubble-left-right" },
+    { to: "/clients", label: "Clients", icon: "i-heroicons-chat-bubble-left-right" },
     { to: "/workers", label: "Workers", icon: "i-heroicons:wrench-screwdriver" },
     { to: "/inventory", label: "Inventory", icon: "i-heroicons-building-office" },
     { to: "/finance", label: "Finances", icon: "i-heroicons-banknotes" },
-    { to: "/settings", label: "Settings", icon: "i-heroicons-cog-6-tooth" }
+    { to: "/settings", label: "Settings", icon: "i-heroicons-cog-6-tooth" },
   ]
-  return base
 })
 </script>
 

@@ -33,6 +33,14 @@ app.post("/", async (c) => {
       };
     });
 
+    const existingJob = await prisma.job.findUnique({
+      where: { id: Number(jobId) },
+      select: { id: true, managerId: true },
+    });
+    if (!existingJob) {
+      return c.json({ error: "Job not found." }, 404);
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       const quote = await tx.quote.create({
         data: {
@@ -44,9 +52,13 @@ app.post("/", async (c) => {
         }
       });
 
+      // Project manager is the manager who sends the quote (so clients see them on Team / job).
       await tx.job.update({
         where: { id: Number(jobId) },
-        data: { status: "QUOTE_SENT" }
+        data: {
+          status: "QUOTE_SENT",
+          ...(existingJob.managerId == null ? { managerId: session.user.id } : {}),
+        },
       });
 
       return quote;

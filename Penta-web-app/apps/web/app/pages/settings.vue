@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { reactive, watch, nextTick } from 'vue'
 
-definePageMeta({ middleware: 'auth' })
-
 const config = useRuntimeConfig()
 const serverUrl = config.public.serverURL || 'http://localhost:3000'
 
@@ -179,7 +177,7 @@ function setAppearanceTheme(t: 'dark' | 'light' | 'auto') {
 function formatPasswordDate(iso: string) {
   if (!iso) return '—'
   try {
-    return new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' })
+    return new Date(iso).toLocaleDateString('en-US', { dateStyle: 'medium' })
   } catch {
     return '—'
   }

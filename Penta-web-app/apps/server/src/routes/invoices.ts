@@ -40,6 +40,12 @@ app.post("/generate", async (c) => {
     if (!job.client) {
       return c.json({ error: "Jobul nu are client asignat." }, 400);
     }
+    if (!["IN_PROGRESS", "READY_FOR_REVIEW"].includes(job.status)) {
+      return c.json(
+        { error: "Invoice can be generated after work is in progress or marked ready for review." },
+        400
+      );
+    }
 
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + 30);

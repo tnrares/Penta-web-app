@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { watch } from 'vue'
 
+definePageMeta({
+  middleware: ['no-client'],
+})
+
 const config = useRuntimeConfig()
 const serverUrl = config.public.serverURL || 'http://localhost:3000'
 
@@ -89,10 +93,19 @@ const workers = computed(() => {
   return list
 })
 
+const { data: teamsFromApi, refresh: refreshTeams } = await useFetch<Team[]>(`${serverUrl}/api/teams`, {
+  credentials: 'include',
+})
+
 const workerDetail = ref<WorkerDetail | null>(null)
 const workerDetailPending = ref(false)
 
-const teams = ref<Team[]>(MOCK_TEAMS)
+/** Persisted teams from API; fallback to demo data only if the request did not return an array. */
+const teams = computed(() => {
+  const api = teamsFromApi.value
+  if (Array.isArray(api)) return api
+  return MOCK_TEAMS
+})
 
 // Auto-select first worker when list loads
 watch(workers, (list) => {
@@ -194,6 +207,34 @@ function sendMessage() {
 const teamChatInput = ref('')
 const newTeamName = ref('')
 const newTeamLeadId = ref<string | undefined>(undefined)
+const creatingTeam = ref(false)
+
+async function createTeamSubmit() {
+  const name = newTeamName.value.trim()
+  if (!name) return
+  creatingTeam.value = true
+  try {
+    const leadId = newTeamLeadId.value
+    await $fetch(`${serverUrl}/api/teams`, {
+      method: 'POST',
+      body: {
+        name,
+        color: 'blue',
+        leadId: leadId || undefined,
+        memberIds: leadId ? [leadId] : [],
+      },
+      credentials: 'include',
+    })
+    newTeamName.value = ''
+    newTeamLeadId.value = undefined
+    showCreateTeamModal.value = false
+    await refreshTeams()
+  } catch (e: any) {
+    alert(e?.data?.error || 'Could not create team.')
+  } finally {
+    creatingTeam.value = false
+  }
+}
 
 function sendTeamMessage() {
   const content = teamChatInput.value.trim()
@@ -209,11 +250,11 @@ function sendTeamMessage() {
 }
 
 const jobHistory = computed(() => workerDetail.value?.jobHistory ?? [])
-const currentAssignments = computed(() => jobHistory.value.filter(j => ['IN_PROGRESS', 'QUOTE_ACCEPTED'].includes(j.status)))
+const currentAssignments = computed(() => jobHistory.value.filter(j => ['IN_PROGRESS', 'QUOTE_ACCEPTED', 'READY_FOR_REVIEW'].includes(j.status)))
 const completedJobHistory = computed(() => jobHistory.value.filter(j => ['FINALIZED', 'CLOSED_PAID'].includes(j.status)))
 
 function getJobStatusClass(status: string) {
-  if (['IN_PROGRESS', 'QUOTE_ACCEPTED'].includes(status)) return 'text-teal-400 bg-teal-400/10 ring-teal-400/20'
+  if (['IN_PROGRESS', 'QUOTE_ACCEPTED', 'READY_FOR_REVIEW'].includes(status)) return 'text-teal-400 bg-teal-400/10 ring-teal-400/20'
   if (['FINALIZED', 'CLOSED_PAID'].includes(status)) return 'penta-status-ok'
   return 'text-gray-400 bg-gray-400/10 ring-gray-400/20'
 }
@@ -652,7 +693,9 @@ function getJobStatusClass(status: string) {
       </template>
       <template #footer>
         <UButton variant="ghost" @click="showCreateTeamModal = false">Cancel</UButton>
-        <UButton class="penta-btn-primary" @click="showCreateTeamModal = false">Create Team</UButton>
+        <UButton class="penta-btn-primary" :loading="creatingTeam" :disabled="!newTeamName.trim()" @click="createTeamSubmit">
+          Create Team
+        </UButton>
       </template>
     </UModal>
   </div>

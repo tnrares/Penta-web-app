@@ -13,6 +13,7 @@
   "dependencies": {
     "@Penta-web-app/api": "workspace:*",
     "@Penta-web-app/auth": "workspace:*",
+    "@Penta-web-app/config": "workspace:*",
     "@nuxt/ui": "^4.5.1",
     "@nuxtjs/color-mode": "^4.0.0",
     "@nuxtjs/mdc": "^0.17.4",
@@ -35,7 +36,6 @@
     "rollup-plugin-visualizer": "^5.14.0",
     "tailwindcss": "^4.1.13",
     "@iconify-json/lucide": "^1.2.57",
-    "@tanstack/vue-query-devtools": "^5.90.2",
-    "@Penta-web-app/config": "workspace:*"
+    "@tanstack/vue-query-devtools": "^5.90.2"
   }
 }

@@ -1,146 +1,158 @@
 <script setup lang="ts">
-    import { useRoute, useRouter } from 'vue-router'
-    const { $authClient } = useNuxtApp()
-    
-    definePageMeta({ middleware: 'auth' })
-    
-    const route = useRoute()
-    const router = useRouter()
-    const jobId = route.params.id
-    
-    // Stare pentru rândurile ofertei
-    const items = ref([
-      { description: '', quantity: 1, unitPrice: 0 }
-    ])
-    
-    // Calculăm Totalul General în timp real
-    const grandTotal = computed(() => {
-      return items.value.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0)
+import { useRoute, useRouter } from 'vue-router'
+
+const config = useRuntimeConfig()
+const serverUrl = config.public.serverURL || 'http://localhost:3000'
+
+const route = useRoute()
+const router = useRouter()
+const jobId = route.params.id
+
+const items = ref([{ description: '', quantity: 1, unitPrice: 0 }])
+
+const grandTotal = computed(() => {
+  return items.value.reduce((acc, item) => acc + item.quantity * item.unitPrice, 0)
+})
+
+const addRow = () => {
+  items.value.push({ description: '', quantity: 1, unitPrice: 0 })
+}
+
+const removeRow = (index: number) => {
+  if (items.value.length > 1) {
+    items.value.splice(index, 1)
+  }
+}
+
+const isSaving = ref(false)
+const saveQuote = async () => {
+  if (items.value.some((i) => !i.description || i.unitPrice <= 0)) {
+    return alert('Fill in description and unit price for every line.')
+  }
+
+  isSaving.value = true
+  try {
+    const res = await fetch(`${serverUrl}/api/quotes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ jobId, items: items.value }),
     })
-    
-    // Adaugă un rând nou
-    const addRow = () => {
-      items.value.push({ description: '', quantity: 1, unitPrice: 0 })
-    }
-    
-    // Șterge un rând
-    const removeRow = (index: number) => {
-      if (items.value.length > 1) {
-        items.value.splice(index, 1)
-      }
-    }
-    
-    // Salvează Oferta
-    const isSaving = ref(false)
-    const saveQuote = async () => {
-      // Validare simplă
-      if (items.value.some(i => !i.description || i.unitPrice <= 0)) {
-        return alert("Completează descrierea și prețul pentru toate rândurile.")
-      }
-    
-      isSaving.value = true
-      try {
-        const res = await fetch(`http://localhost:3000/api/quotes`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          credentials: 'include',
-          body: JSON.stringify({
-            jobId: jobId,
-            items: items.value
-          })
-        })
 
-        if (!res.ok) {
-          const error = await res.json()
-          throw new Error(error.error || "Eroare la trimiterea ofertei")
-        }
-
-        const data = await res.json()
-        alert("Ofertă trimisă cu succes!")
-        router.push(`/jobs/${jobId}`) // Ne întoarcem la detalii
-      } catch (e: any) {
-        alert("Eroare: " + e.message)
-      } finally {
-        isSaving.value = false
-      }
+    if (!res.ok) {
+      const error = await res.json()
+      throw new Error(error.error || 'Failed to submit quote')
     }
-    </script>
-    
-    <template>
-      <div class="quote-container">
-        <header>
-          <h1> Creare Ofertă pentru Job #{{ jobId }}</h1>
-          <NuxtLink :to="`/jobs/${jobId}`">Anulează</NuxtLink>
-        </header>
-    
-        <div class="editor-card">
-          <table class="quote-table">
-            <thead>
-              <tr>
-                <th style="width: 50%">Descriere / Material / Manoperă</th>
-                <th style="width: 15%">Cantitate</th>
-                <th style="width: 15%">Preț Unitar (RON)</th>
-                <th style="width: 15%">Total Linie</th>
-                <th style="width: 5%"></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(item, index) in items" :key="index">
-                <td>
-                  <input v-model="item.description" placeholder="Ex: Saci Ciment sau Manoperă parchet" />
-                </td>
-                <td>
-                  <input type="number" v-model.number="item.quantity" min="1" />
-                </td>
-                <td>
-                  <input type="number" v-model.number="item.unitPrice" min="0" step="0.5" />
-                </td>
-                <td class="total-col">
-                  {{ (item.quantity * item.unitPrice).toFixed(2) }} RON
-                </td>
-                <td>
-                  <button @click="removeRow(index)" class="btn-delete" title="Șterge rând">✕</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-    
-          <button @click="addRow" class="btn-add">+ Adaugă Linie</button>
-    
-          <div class="footer-summary">
-            <h3>Total Ofertă: {{ grandTotal.toFixed(2) }} RON</h3>
-            <button @click="saveQuote" :disabled="isSaving" class="btn-save">
-              {{ isSaving ? 'Se trimite...' : ' Trimite Oferta' }}
-            </button>
-          </div>
-        </div>
+
+    await res.json()
+    alert('Quote sent successfully. The client can accept it on their job page.')
+    router.push(`/jobs/${jobId}`)
+  } catch (e: unknown) {
+    const err = e as Error
+    alert('Error: ' + err.message)
+  } finally {
+    isSaving.value = false
+  }
+}
+</script>
+
+<template>
+  <div class="min-h-full max-w-5xl mx-auto px-4 pb-12 text-white">
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h1 class="text-3xl font-bold">Create quote for job #{{ jobId }}</h1>
+        <p class="mt-1 text-sm text-gray-400">Add line items and send the quote to the client.</p>
       </div>
-    </template>
-    
-    <style scoped>
-    .quote-container { max-width: 1000px; margin: 0 auto; padding: 20px; font-family: sans-serif; }
-    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-    
-    .editor-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-    
-    .quote-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-    .quote-table th { text-align: left; padding: 10px; background: #f8f9fa; border-bottom: 2px solid #ddd; }
-    .quote-table td { padding: 10px; border-bottom: 1px solid #eee; }
-    
-    input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
-    .total-col { font-weight: bold; color: #333; }
-    
-    .btn-delete { background: #ffebee; color: #c62828; border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-weight: bold; }
-    .btn-delete:hover { background: #ffcdd2; }
-    
-    .btn-add { background: #e3f2fd; color: #1565c0; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-    .btn-add:hover { background: #bbdefb; }
-    
-    .footer-summary { margin-top: 30px; display: flex; justify-content: space-between; align-items: center; border-top: 2px solid #eee; padding-top: 20px; }
-    .footer-summary h3 { font-size: 1.5rem; margin: 0; }
-    
-    .btn-save { background: #28a745; color: white; border: none; padding: 12px 24px; border-radius: 6px; font-size: 1.1rem; cursor: pointer; font-weight: bold; }
-    .btn-save:disabled { background: #ccc; cursor: not-allowed; }
-    </style>
+      <UButton :to="`/jobs/${jobId}`" variant="ghost" class="text-gray-400 self-start sm:self-auto">
+        <UIcon name="i-heroicons-arrow-left" class="mr-2 h-4 w-4" />
+        Back to job
+      </UButton>
+    </div>
+
+    <div class="rounded-xl bg-[#121212] p-6 ring-1 ring-gray-800/80 md:p-8">
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[640px] border-collapse text-sm">
+          <thead>
+            <tr class="border-b border-gray-800 text-left text-gray-400">
+              <th class="pb-3 pr-4 font-medium">Description / material / labor</th>
+              <th class="pb-3 pr-4 font-medium w-24">Qty</th>
+              <th class="pb-3 pr-4 font-medium w-32">Unit price (RON)</th>
+              <th class="pb-3 pr-4 font-medium w-28">Line total</th>
+              <th class="pb-3 w-12" />
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="(item, index) in items"
+              :key="index"
+              class="border-b border-gray-800/60"
+            >
+              <td class="py-3 pr-4 align-top">
+                <UInput
+                  v-model="item.description"
+                  placeholder="e.g. Cement bags or flooring labor"
+                  class="w-full"
+                  :ui="{ base: 'bg-[#18181b] border-gray-800 text-white' }"
+                />
+              </td>
+              <td class="py-3 pr-4 align-top">
+                <UInput
+                  v-model.number="item.quantity"
+                  type="number"
+                  min="1"
+                  :ui="{ base: 'bg-[#18181b] border-gray-800 text-white' }"
+                />
+              </td>
+              <td class="py-3 pr-4 align-top">
+                <UInput
+                  v-model.number="item.unitPrice"
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  :ui="{ base: 'bg-[#18181b] border-gray-800 text-white' }"
+                />
+              </td>
+              <td class="py-3 pr-4 align-top font-medium text-gray-200">
+                {{ (item.quantity * item.unitPrice).toFixed(2) }} RON
+              </td>
+              <td class="py-3 align-top">
+                <UButton
+                  icon="i-heroicons-x-mark"
+                  size="xs"
+                  color="error"
+                  variant="ghost"
+                  :disabled="items.length <= 1"
+                  @click="removeRow(index)"
+                />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <UButton
+        variant="outline"
+        class="mt-4 ring-1 ring-gray-700 text-gray-300"
+        icon="i-heroicons-plus"
+        @click="addRow"
+      >
+        Add line
+      </UButton>
+
+      <div class="mt-8 flex flex-col gap-4 border-t border-gray-800 pt-6 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p class="text-sm text-gray-500">Quote total</p>
+          <p class="text-2xl font-bold text-white">{{ grandTotal.toFixed(2) }} RON</p>
+        </div>
+        <UButton
+          class="penta-btn-primary px-8 py-3"
+          :loading="isSaving"
+          icon="i-heroicons-paper-airplane"
+          @click="saveQuote"
+        >
+          {{ isSaving ? 'Sending…' : 'Send quote' }}
+        </UButton>
+      </div>
+    </div>
+  </div>
+</template>
